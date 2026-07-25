@@ -49,6 +49,10 @@ private:
     bool entranceDoorClosing = false;
     bool exitDoorOpening = false;
     float doorTimer = 0.0f;
+    SpriteAnimation enemyDoorAnim;
+    int enemyDoorFrame = 0;
+    bool enemyDoorAnimating = false;
+    float enemyDoorTimer = 0.0f;
 
     // --- helpers -------------------------------------------------------
     static Difficulty RoomDifficulty(int roomNumber);

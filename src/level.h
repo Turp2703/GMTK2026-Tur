@@ -14,6 +14,7 @@ struct RoomLayout {
     std::vector<PuzzleSlot> puzzleSlots; // 8 required "P" slots + 1 bonus "N" slot
     Door entranceDoor;
     Door exitDoor;
+    Rectangle enemyDoorRect;
     Vector2 playerSpawn{ 0, 0 };
     Vector2 enemySpawn{ 0, 0 };
     int requiredSolves = 0; // number of non-broken required puzzle slots
@@ -113,6 +114,7 @@ inline RoomLayout GenerateRoom(int roomNumber, const PuzzleTypeInfo& chosenType)
     room.puzzleSlots.push_back(makeSlot(5, 3, false));
 
     room.enemySpawn = { ColumnX(3) - 16, room.floorY[3] - 80 };
+    room.enemyDoorRect = { ColumnX(3) - 24, room.floorY[3] - 48, 48, 48 };
 
     // Break ~5% of the 8 required slots, guaranteeing at least one stays
     // solvable. The bonus "N" slot is never randomly broken - but on the

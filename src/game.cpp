@@ -21,6 +21,7 @@ Game::Game() {
     enemyAnims[Enemy::ANIM_HIDDEN] = loadAnim("assets/enemy_hidden.png", 6, 0.1f, true);
 
     sideDoorAnim = loadAnim("assets/side_door.png", 5, 0.2f, false);
+    enemyDoorAnim = loadAnim("assets/enemy_door.png", 10, 0.12f, false);
 }
 
 Game::~Game() {
@@ -31,6 +32,7 @@ Game::~Game() {
         if (a.texture.id != 0) UnloadTexture(a.texture);
     }
     if (sideDoorAnim.texture.id != 0) UnloadTexture(sideDoorAnim.texture);
+    if (enemyDoorAnim.texture.id != 0) UnloadTexture(enemyDoorAnim.texture);
 }
 
 // =============================================================================
@@ -73,8 +75,11 @@ void Game::StartRoom(int roomNumber, const PuzzleTypeInfo& type) {
     exitDoorFrame = 0;
     entranceDoorClosing = true;
     exitDoorOpening = false;
+    enemyDoorFrame = 0;
+    enemyDoorAnimating = false;
+    enemyDoorTimer = 0.0f;
 
-    timeRemaining = 60.0f;
+    timeRemaining = 10.0f;
     solvedCount = 0;
     startCountdown = 3.0f;
     nearbySlotIndex = -1;
@@ -236,7 +241,25 @@ void Game::UpdatePlaying(float dt) {
 
     if (!enemySpawned) {
         timeRemaining -= dt;
-        if (timeRemaining <= 0.0f) {
+        float doorAnimDuration = enemyDoorAnim.frameCount * enemyDoorAnim.frameTime;
+
+        // Start door animation when time is about to run out
+        if (!enemyDoorAnimating && timeRemaining <= doorAnimDuration) {
+            enemyDoorAnimating = true;
+            enemyDoorTimer = 0.0f;
+        }
+
+        // Advance door animation
+        if (enemyDoorAnimating && enemyDoorFrame < enemyDoorAnim.frameCount - 1) {
+            enemyDoorTimer += dt;
+            if (enemyDoorTimer >= enemyDoorAnim.frameTime) {
+                enemyDoorTimer -= enemyDoorAnim.frameTime;
+                enemyDoorFrame++;
+            }
+        }
+
+        // Spawn enemy once door animation finishes
+        if (enemyDoorAnimating && enemyDoorFrame >= enemyDoorAnim.frameCount - 1) {
             timeRemaining = 0.0f;
             enemy.Spawn(room.enemySpawn);
             enemySpawned = true;
@@ -394,6 +417,18 @@ void Game::DrawPlaying() {
         bool exitReady = solvedCount >= room.requiredSolves;
         DrawRectangleRec(room.exitDoor.rect, exitReady ? Color{ 60, 160, 90, 255 } : Color{ 90, 60, 60, 255 });
         DrawCenteredText("B", room.exitDoor.rect, 20, RAYWHITE);
+    }
+
+    // Enemy spawn door (top floor, column 3)
+    if (enemyDoorAnim.texture.id != 0) {
+        int doorFloor = room.FloorForY(room.enemyDoorRect.y + room.enemyDoorRect.height);
+        unsigned char doorA = floorAlpha(doorFloor);
+        float spriteW = (float)enemyDoorAnim.texture.width / enemyDoorAnim.frameCount;
+        float spriteH = (float)enemyDoorAnim.texture.height;
+        Rectangle src = { enemyDoorFrame * spriteW, 0, spriteW, spriteH };
+        DrawTexturePro(enemyDoorAnim.texture, src,
+            { room.enemyDoorRect.x, room.enemyDoorRect.y, spriteW, spriteH },
+            Vector2{0,0}, 0.0f, Color{ 255, 255, 255, doorA });
     }
 
     // Puzzle slots
