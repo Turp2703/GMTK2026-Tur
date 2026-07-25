@@ -26,6 +26,12 @@ Game::Game() {
     ladderMid = LoadTexture("assets/ladder_middle.png");
     ladderBot = LoadTexture("assets/ladder_bottom.png");
     sabotageAnim = loadAnim("assets/sabotage.png", 4, 0.15f, true);
+    floorTop = LoadTexture("assets/floor_top.png");
+    floorTopLeft = LoadTexture("assets/floor_top_left.png");
+    floorTopRight = LoadTexture("assets/floor_top_right.png");
+    floorLeft = LoadTexture("assets/floor_left.png");
+    floorRight = LoadTexture("assets/floor_right.png");
+    floorLowest = LoadTexture("assets/floor_lowest.png");
 }
 
 Game::~Game() {
@@ -41,6 +47,12 @@ Game::~Game() {
     if (ladderMid.id != 0) UnloadTexture(ladderMid);
     if (ladderBot.id != 0) UnloadTexture(ladderBot);
     if (sabotageAnim.texture.id != 0) UnloadTexture(sabotageAnim.texture);
+    if (floorTop.id != 0) UnloadTexture(floorTop);
+    if (floorTopLeft.id != 0) UnloadTexture(floorTopLeft);
+    if (floorTopRight.id != 0) UnloadTexture(floorTopRight);
+    if (floorLeft.id != 0) UnloadTexture(floorLeft);
+    if (floorRight.id != 0) UnloadTexture(floorRight);
+    if (floorLowest.id != 0) UnloadTexture(floorLowest);
 }
 
 // =============================================================================
@@ -274,6 +286,7 @@ void Game::UpdatePlaying(float dt) {
             enemy.spawning = false;
         }
         enemy.Update(dt, player, room.platforms, room.elevators, kScreenH);
+        enemy.pos.x = Clamp(enemy.pos.x, 32.0f, kScreenW - enemy.size.x - 32.0f);
         if (enemy.CatchesPlayer(player)) {
             state = GameState::GAME_OVER;
             return;
@@ -366,8 +379,67 @@ void Game::DrawPlaying() {
     // Platforms
     for (auto& p : room.platforms) {
         unsigned char a = floorAlpha(p.floor);
-        DrawRectangleRec(p.rect, Color{ 70, 60, 90, a });
-        DrawRectangleLinesEx(p.rect, 1, Color{ 110, 100, 140, a });
+        Color tint{ 255, 255, 255, a };
+        float px = p.rect.x, py = p.rect.y, pw = p.rect.width;
+
+        Texture2D tileTex = (p.floor == 0) ? floorLowest : floorTop;
+        Texture2D leftTex = (p.floor == 0) ? floorLowest : floorTopLeft;
+        Texture2D rightTex = (p.floor == 0) ? floorLowest : floorTopRight;
+
+        DrawTexturePro(leftTex, { 0, 0, 32, 32 }, { px, py, 32, 32 }, {0,0}, 0.0f, tint);
+        float tileX = 32.0f;
+        while (tileX < pw - 32.0f) {
+            float w = std::min(32.0f, pw - 32.0f - tileX);
+            DrawTexturePro(tileTex, { 0, 0, w, 32 }, { px + tileX, py, w, 32 }, {0,0}, 0.0f, tint);
+            tileX += 32.0f;
+        }
+        if (pw >= 64.0f) {
+            DrawTexturePro(rightTex, { 0, 0, 32, 32 }, { px + pw - 32, py, 32, 32 }, {0,0}, 0.0f, tint);
+        }
+    }
+
+    // Ceiling (y=32, below HUD)
+    {
+        float cy = 32.0f;
+        Color tint{ 255, 255, 255, 255 };
+        DrawTexturePro(floorTopLeft, { 0, 0, 32, 32 }, { 0, cy, 32, 32 }, {0,0}, 0.0f, tint);
+        float tileX = 32.0f;
+        while (tileX < kScreenW - 32.0f) {
+            float w = std::min(32.0f, kScreenW - 32.0f - tileX);
+            DrawTexturePro(floorTop, { 0, 0, w, 32 }, { tileX, cy, w, 32 }, {0,0}, 0.0f, tint);
+            tileX += 32.0f;
+        }
+        DrawTexturePro(floorTopRight, { 0, 0, 32, 32 }, { kScreenW - 32, cy, 32, 32 }, {0,0}, 0.0f, tint);
+    }
+
+    // Walls
+    {
+        Color tint{ 255, 255, 255, 255 };
+        float wallBottom = room.floorY[0];
+        Rectangle doorL = room.entranceDoor.rect;
+        Rectangle doorR = room.exitDoor.rect;
+
+        // Left wall
+        float wy = 32.0f;
+        while (wy < wallBottom) {
+            if (wy + 32.0f > doorL.y && wy < doorL.y + doorL.height) {
+                wy = doorL.y + doorL.height;
+                continue;
+            }
+            DrawTexturePro(floorLeft, { 0, 0, 32, 32 }, { 0, wy, 32, 32 }, {0,0}, 0.0f, tint);
+            wy += 32.0f;
+        }
+
+        // Right wall
+        wy = 32.0f;
+        while (wy < wallBottom) {
+            if (wy + 32.0f > doorR.y && wy < doorR.y + doorR.height) {
+                wy = doorR.y + doorR.height;
+                continue;
+            }
+            DrawTexturePro(floorRight, { 0, 0, 32, 32 }, { kScreenW - 32, wy, 32, 32 }, {0,0}, 0.0f, tint);
+            wy += 32.0f;
+        }
     }
 
     // Elevators (ladders)

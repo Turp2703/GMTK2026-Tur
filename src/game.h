@@ -58,6 +58,13 @@ private:
     Texture2D ladderBot{};
     SpriteAnimation sabotageAnim;
 
+    Texture2D floorTop{};
+    Texture2D floorTopLeft{};
+    Texture2D floorTopRight{};
+    Texture2D floorLeft{};
+    Texture2D floorRight{};
+    Texture2D floorLowest{};
+
     // --- helpers -------------------------------------------------------
     static Difficulty RoomDifficulty(int roomNumber);
 

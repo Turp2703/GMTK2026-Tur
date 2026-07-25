@@ -86,7 +86,7 @@ public:
         }
 
         pos.x += moveX * speed * dt;
-        pos.x = Clamp(pos.x, 0, screenW - size.x);
+        pos.x = Clamp(pos.x, 32.0f, screenW - size.x - 32.0f);
 
         climbing = controlsEnabled && onElevator && (IsKeyDown(KEY_W) || IsKeyDown(KEY_S));
 
