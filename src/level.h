@@ -55,9 +55,8 @@ inline RoomLayout GenerateRoom(int roomNumber, const PuzzleTypeInfo& chosenType)
     }
 
     // Elevators: one shaft at column 2 and one at column 4, for every gap
-    // between adjacent floors. (All present for now - the "50% chance for
-    // the second one" rule is left for later.)
-    const float elevatorWidth = 34.0f;
+    // between adjacent floors.
+    const float elevatorWidth = 4.0f;
     for (int f = 0; f < kFloorCount - 1; f++) {
         for (int col : { 2, 4 }) {
             float cx = ColumnX(col);

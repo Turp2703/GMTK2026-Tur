@@ -377,7 +377,7 @@ void Game::DrawPlaying() {
         unsigned char a = (loF == playerFloor || hiF == playerFloor) ? 255 : 70;
         Color tint = e.active ? Color{ 255, 255, 255, a } : Color{ 180, 80, 80, a };
 
-        float ladderW = 32.0f;
+        float ladderW = 24.0f;
         float drawX = e.rect.x + e.rect.width / 2.0f - ladderW / 2.0f;
 
         bool isTopmostInCol = true;
