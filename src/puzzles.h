@@ -162,14 +162,27 @@ public:
         unitName = pick.first;
         double correct = meters * pick.second;
 
-        auto fmt = [&](double v) {
-            return (v == (long long)v) ? std::string(TextFormat("%lld %s", (long long)v, unitName.c_str()))
-                                        : std::string(TextFormat("%.2f %s", v, unitName.c_str()));
+        auto fmt = [](double v, const char* unit) {
+            int decimals = 0;
+            double absVal = fabs(v);
+            if (absVal > 0.0 && absVal < 1.0) {
+                decimals = (int)ceil(-log10(absVal)) + 1;
+                decimals = std::clamp(decimals, 1, 6);
+            }
+            char buf[64];
+            TextCopy(buf, TextFormat("%.*f %s", decimals, v, unit));
+            return std::string(buf);
         };
+
+        std::array<double, 3> wrongMult = { 10.0, 0.1, 2.0 };
+        std::shuffle(wrongMult.begin(), wrongMult.end(), RNG());
         std::array<std::string, 3> choices;
-        choices[0] = fmt(correct);
-        choices[1] = fmt(correct * 10.0);   // classic decimal-shift mistake
-        choices[2] = fmt(correct / 10.0);
+        choices[0] = fmt(correct, unitName.c_str());
+        choices[1] = fmt(correct * wrongMult[0], unitName.c_str());
+        choices[2] = fmt(correct * wrongMult[1], unitName.c_str());
+        if (choices[1] == choices[0] || choices[2] == choices[0]) {
+            choices[2] = fmt(correct * wrongMult[2], unitName.c_str());
+        }
         correctIndex = ShuffleChoices(choices);
         finalChoices = choices;
     }
