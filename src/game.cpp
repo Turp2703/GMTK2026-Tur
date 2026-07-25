@@ -404,12 +404,10 @@ void Game::DrawPlaying() {
             Vector2{0,0}, 0.0f, WHITE);
 
         // Exit door
-        bool exitReady = solvedCount >= room.requiredSolves;
-        Color exitTint = exitReady ? Color{ 100, 255, 140, 255 } : Color{ 255, 100, 100, 255 };
         Rectangle exitSrc = { exitDoorFrame * spriteW, 0, spriteW, spriteH };
         DrawTexturePro(sideDoorAnim.texture, exitSrc,
             { room.exitDoor.rect.x, room.exitDoor.rect.y, spriteW, spriteH },
-            Vector2{0,0}, 0.0f, exitTint);
+            Vector2{0,0}, 0.0f, WHITE);
     } else {
         DrawRectangleRec(room.entranceDoor.rect, Color{ 60, 100, 60, 255 });
         DrawCenteredText("A", room.entranceDoor.rect, 20, RAYWHITE);
