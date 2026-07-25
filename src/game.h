@@ -43,6 +43,12 @@ private:
 
     std::array<SpriteAnimation, Player::ANIM_COUNT> playerAnims;
     std::array<SpriteAnimation, Enemy::ANIM_COUNT> enemyAnims;
+    SpriteAnimation sideDoorAnim;
+    int entranceDoorFrame = 0;
+    int exitDoorFrame = 7;
+    bool entranceDoorClosing = false;
+    bool exitDoorOpening = false;
+    float doorTimer = 0.0f;
 
     // --- helpers -------------------------------------------------------
     static Difficulty RoomDifficulty(int roomNumber);

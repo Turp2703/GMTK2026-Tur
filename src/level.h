@@ -78,9 +78,10 @@ inline RoomLayout GenerateRoom(int roomNumber, const PuzzleTypeInfo& chosenType)
         room.sabotageButtons.push_back(btn);
     }
 
-    // Doors on the ground floor.
-    room.entranceDoor = { Rectangle{ ColumnX(0) - 24, room.floorY[0] - 60, 48, 60 }, 0, false };
-    room.exitDoor = { Rectangle{ ColumnX(6) - 24, room.floorY[0] - 60, 48, 60 }, 0, true };
+    // Doors on the ground floor at the room borders.
+    const float doorW = 32, doorH = 64;
+    room.entranceDoor = { Rectangle{ 0, room.floorY[0] - doorH, doorW, doorH }, 0, false };
+    room.exitDoor = { Rectangle{ kScreenW - doorW, room.floorY[0] - doorH, doorW, doorH }, 0, true };
     room.playerSpawn = { room.entranceDoor.rect.x + 10, room.floorY[0] - 36 };
 
     // Puzzle slot helper.

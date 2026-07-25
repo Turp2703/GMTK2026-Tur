@@ -18,6 +18,8 @@ Game::Game() {
     enemyAnims[Enemy::ANIM_SPAWN]  = loadAnim("assets/enemy_spawn.png",  6, 0.1f, false);
     enemyAnims[Enemy::ANIM_RUN]    = loadAnim("assets/enemy_run.png",    6, 0.1f, true);
     enemyAnims[Enemy::ANIM_LADDER] = loadAnim("assets/enemy_ladder.png", 6, 0.1f, true);
+
+    sideDoorAnim = loadAnim("assets/side_door.png", 5, 0.2f, false);
 }
 
 Game::~Game() {
@@ -27,6 +29,7 @@ Game::~Game() {
     for (auto& a : enemyAnims) {
         if (a.texture.id != 0) UnloadTexture(a.texture);
     }
+    if (sideDoorAnim.texture.id != 0) UnloadTexture(sideDoorAnim.texture);
 }
 
 // =============================================================================
@@ -64,6 +67,11 @@ void Game::StartRoom(int roomNumber, const PuzzleTypeInfo& type) {
     enemy.pos = room.enemySpawn;
     enemy.active = false;
     enemySpawned = false;
+
+    entranceDoorFrame = sideDoorAnim.frameCount - 1;
+    exitDoorFrame = 0;
+    entranceDoorClosing = true;
+    exitDoorOpening = false;
 
     timeRemaining = 60.0f;
     solvedCount = 0;
@@ -156,6 +164,29 @@ void Game::UpdatePlaying(float dt) {
     player.Update(dt, room.platforms, room.elevators, kScreenW, kScreenH);
     if (player.grounded) playerAnims[Player::ANIM_FALL].Reset();
     for (auto& a : playerAnims) a.Update(dt);
+
+    // Entrance door: close during spawn countdown
+    if (entranceDoorClosing && entranceDoorFrame > 0) {
+        doorTimer += dt;
+        if (doorTimer >= sideDoorAnim.frameTime) {
+            doorTimer -= sideDoorAnim.frameTime;
+            entranceDoorFrame--;
+        }
+    }
+    if (startCountdown <= 0.0f) entranceDoorClosing = false;
+
+    // Exit door: open when puzzles are solved
+    if (solvedCount >= room.requiredSolves && !exitDoorOpening) {
+        exitDoorOpening = true;
+        doorTimer = 0.0f;
+    }
+    if (exitDoorOpening && exitDoorFrame < sideDoorAnim.frameCount - 1) {
+        doorTimer += dt;
+        if (doorTimer >= sideDoorAnim.frameTime) {
+            doorTimer -= sideDoorAnim.frameTime;
+            exitDoorFrame++;
+        }
+    }
 
     if (startCountdown > 0.0f) return; // nothing else happens until "GO"
 
@@ -338,14 +369,31 @@ void Game::DrawPlaying() {
     }
 
     // Doors
-    DrawRectangleRec(room.entranceDoor.rect, Color{ 60, 100, 60, 255 });
-    DrawRectangleLinesEx(room.entranceDoor.rect, 2, Color{ 30, 60, 30, 255 });
-    DrawCenteredText("A", room.entranceDoor.rect, 20, RAYWHITE);
+    if (sideDoorAnim.texture.id != 0) {
+        float spriteW = (float)sideDoorAnim.texture.width / sideDoorAnim.frameCount;
+        float spriteH = (float)sideDoorAnim.texture.height;
 
-    bool exitReady = solvedCount >= room.requiredSolves;
-    DrawRectangleRec(room.exitDoor.rect, exitReady ? Color{ 60, 160, 90, 255 } : Color{ 90, 60, 60, 255 });
-    DrawRectangleLinesEx(room.exitDoor.rect, 2, Color{ 30, 30, 30, 255 });
-    DrawCenteredText("B", room.exitDoor.rect, 20, RAYWHITE);
+        // Entrance door
+        Rectangle entranceSrc = { entranceDoorFrame * spriteW, 0, spriteW, spriteH };
+        DrawTexturePro(sideDoorAnim.texture, entranceSrc,
+            { room.entranceDoor.rect.x, room.entranceDoor.rect.y, spriteW, spriteH },
+            Vector2{0,0}, 0.0f, WHITE);
+
+        // Exit door
+        bool exitReady = solvedCount >= room.requiredSolves;
+        Color exitTint = exitReady ? Color{ 100, 255, 140, 255 } : Color{ 255, 100, 100, 255 };
+        Rectangle exitSrc = { exitDoorFrame * spriteW, 0, spriteW, spriteH };
+        DrawTexturePro(sideDoorAnim.texture, exitSrc,
+            { room.exitDoor.rect.x, room.exitDoor.rect.y, spriteW, spriteH },
+            Vector2{0,0}, 0.0f, exitTint);
+    } else {
+        DrawRectangleRec(room.entranceDoor.rect, Color{ 60, 100, 60, 255 });
+        DrawCenteredText("A", room.entranceDoor.rect, 20, RAYWHITE);
+
+        bool exitReady = solvedCount >= room.requiredSolves;
+        DrawRectangleRec(room.exitDoor.rect, exitReady ? Color{ 60, 160, 90, 255 } : Color{ 90, 60, 60, 255 });
+        DrawCenteredText("B", room.exitDoor.rect, 20, RAYWHITE);
+    }
 
     // Puzzle slots
     for (int i = 0; i < (int)room.puzzleSlots.size(); i++) {
