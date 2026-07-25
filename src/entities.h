@@ -26,8 +26,7 @@ struct Elevator {
 struct SabotageButton {
     Rectangle rect;
     int elevatorIndex = -1;
-    float holdTime = 0.0f; // accumulates while F is held nearby
-    static constexpr float kRequiredHold = 3.0f;
+    bool flipped = false;
 };
 
 struct Door {
@@ -72,7 +71,7 @@ public:
 
     Rectangle Bounds() const { return { pos.x, pos.y, size.x, size.y }; }
 
-    void Update(float dt, const std::vector<Platform>& platforms, const std::vector<Elevator>& elevators, float screenW, float screenH) {
+    void Update(float dt, const std::vector<Platform>& platforms, const std::vector<Elevator>& elevators, float screenW, float screenH, float minFeetY = 0) {
         Rectangle elevatorCheck{ pos.x, pos.y, size.x, size.y + 6 };
         onElevator = false;
         const Elevator* currentElevator = nullptr;
@@ -98,6 +97,7 @@ public:
             if (IsKeyDown(KEY_W)) moveY -= 1;
             if (IsKeyDown(KEY_S)) moveY += 1;
             pos.y += moveY * climbSpeed * dt;
+            if (pos.y + size.y > minFeetY) pos.y = minFeetY - size.y;
             velocity.y = 0;
         } else {
             velocity.y += gravity * dt;

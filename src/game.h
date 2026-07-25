@@ -53,6 +53,10 @@ private:
     int enemyDoorFrame = 0;
     bool enemyDoorAnimating = false;
     float enemyDoorTimer = 0.0f;
+    Texture2D ladderTop{};
+    Texture2D ladderMid{};
+    Texture2D ladderBot{};
+    SpriteAnimation sabotageAnim;
 
     // --- helpers -------------------------------------------------------
     static Difficulty RoomDifficulty(int roomNumber);

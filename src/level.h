@@ -75,7 +75,12 @@ inline RoomLayout GenerateRoom(int roomNumber, const PuzzleTypeInfo& chosenType)
         auto& e = room.elevators[i];
         SabotageButton btn;
         btn.elevatorIndex = i;
-        btn.rect = Rectangle{ e.rect.x - 40, room.floorY[e.floorLow] - 26, 30, 26 };
+        btn.flipped = (e.rect.x > ColumnX(3));
+        if (btn.flipped) {
+            btn.rect = Rectangle{ e.rect.x + e.rect.width + 8, room.floorY[e.floorLow] - 42, 32, 42 };
+        } else {
+            btn.rect = Rectangle{ e.rect.x - 40, room.floorY[e.floorLow] - 42, 32, 42 };
+        }
         room.sabotageButtons.push_back(btn);
     }
 

@@ -22,6 +22,10 @@ Game::Game() {
 
     sideDoorAnim = loadAnim("assets/side_door.png", 5, 0.2f, false);
     enemyDoorAnim = loadAnim("assets/enemy_door.png", 10, 0.12f, false);
+    ladderTop = LoadTexture("assets/ladder_top.png");
+    ladderMid = LoadTexture("assets/ladder_middle.png");
+    ladderBot = LoadTexture("assets/ladder_bottom.png");
+    sabotageAnim = loadAnim("assets/sabotage.png", 4, 0.15f, true);
 }
 
 Game::~Game() {
@@ -33,6 +37,10 @@ Game::~Game() {
     }
     if (sideDoorAnim.texture.id != 0) UnloadTexture(sideDoorAnim.texture);
     if (enemyDoorAnim.texture.id != 0) UnloadTexture(enemyDoorAnim.texture);
+    if (ladderTop.id != 0) UnloadTexture(ladderTop);
+    if (ladderMid.id != 0) UnloadTexture(ladderMid);
+    if (ladderBot.id != 0) UnloadTexture(ladderBot);
+    if (sabotageAnim.texture.id != 0) UnloadTexture(sabotageAnim.texture);
 }
 
 // =============================================================================
@@ -79,7 +87,7 @@ void Game::StartRoom(int roomNumber, const PuzzleTypeInfo& type) {
     enemyDoorAnimating = false;
     enemyDoorTimer = 0.0f;
 
-    timeRemaining = 10.0f;
+    timeRemaining = 60.0f;
     solvedCount = 0;
     startCountdown = 3.0f;
     nearbySlotIndex = -1;
@@ -167,9 +175,10 @@ void Game::UpdatePlaying(float dt) {
         player.controlsEnabled = true;
     }
 
-    player.Update(dt, room.platforms, room.elevators, kScreenW, kScreenH);
+    player.Update(dt, room.platforms, room.elevators, kScreenW, kScreenH, room.floorY[0]);
     if (player.grounded) playerAnims[Player::ANIM_FALL].Reset();
     for (auto& a : playerAnims) a.Update(dt);
+    sabotageAnim.Update(dt);
 
     // Entrance door: close during spawn countdown
     if (entranceDoorClosing && entranceDoorFrame > 0) {
@@ -200,24 +209,18 @@ void Game::UpdatePlaying(float dt) {
 
     int playerFloor = room.FloorForY(player.pos.y + player.size.y);
 
-    // Sabotage buttons - hold F for 3s while standing near one.
+    // Sabotage buttons - press F while standing near one.
     Rectangle pb = player.Bounds();
     Rectangle interactZone{ pb.x - 20, pb.y - 20, pb.width + 40, pb.height + 40 };
     for (auto& btn : room.sabotageButtons) {
         auto& elev = room.elevators[btn.elevatorIndex];
         bool near = CheckCollisionRecs(interactZone, btn.rect) && elev.floorLow == playerFloor;
-        if (near && !elev.used && IsKeyDown(KEY_F)) {
-            btn.holdTime += dt;
-            if (btn.holdTime >= SabotageButton::kRequiredHold) {
-                elev.active = false;
-                elev.used = true;
-                elev.reactivateTimer = 5.0f;
-                btn.holdTime = 0.0f;
-                message = "Elevator sabotaged!";
-                messageTimer = 1.2f;
-            }
-        } else {
-            btn.holdTime = 0.0f;
+        if (near && !elev.used && IsKeyPressed(KEY_F)) {
+            elev.active = false;
+            elev.used = true;
+            elev.reactivateTimer = 5.0f;
+            message = "Elevator sabotaged!";
+            messageTimer = 1.2f;
         }
     }
 
@@ -330,7 +333,7 @@ void Game::DrawMenu() { // TODO WIDTH 1280
     DrawCenteredText("AI-DOOMER", Rectangle{ 0, 180, kScreenW, 80 }, 60, RAYWHITE);
     DrawCenteredText("You have a few minutes to prove you are better than AI.", Rectangle{ 0, 270, kScreenW, 30 }, 22, GRAY);
     DrawCenteredText("Or else... they will get you.", Rectangle{ 0, 300, kScreenW, 30 }, 22, Color{ 220, 80, 80, 255 });
-    DrawCenteredText("AD move | W/S use elevator | 1/2/3 answer | Hold F to sabotage an elevator", Rectangle{ 0, 360, kScreenW, 30 }, 18, GRAY);
+    DrawCenteredText("AD move | W/S use elevator | 1/2/3 answer | F to sabotage an elevator", Rectangle{ 0, 360, kScreenW, 30 }, 18, GRAY);
     DrawCenteredText("Press ENTER to start", Rectangle{ 0, 460, kScreenW, 40 }, 26, YELLOW);
 }
 
@@ -367,28 +370,61 @@ void Game::DrawPlaying() {
         DrawRectangleLinesEx(p.rect, 1, Color{ 110, 100, 140, a });
     }
 
-    // Elevators
-    for (auto& e : room.elevators) {
+    // Elevators (ladders)
+    for (int i = 0; i < (int)room.elevators.size(); i++) {
+        auto& e = room.elevators[i];
         int loF = e.floorLow, hiF = e.floorHigh;
         unsigned char a = (loF == playerFloor || hiF == playerFloor) ? 255 : 70;
-        Color base = e.active ? Color{ 120, 90, 40, a } : Color{ 140, 40, 40, a };
-        DrawRectangleRec(e.rect, Fade(base, e.active ? 0.7f : 0.5f));
-        for (float y = e.rect.y; y < e.rect.y + e.rect.height; y += 14) {
-            DrawLineEx(Vector2{ e.rect.x, y }, Vector2{ e.rect.x + e.rect.width, y }, 2, Color{ 200, 160, 90, a });
+        Color tint = e.active ? Color{ 255, 255, 255, a } : Color{ 180, 80, 80, a };
+
+        float ladderW = 32.0f;
+        float drawX = e.rect.x + e.rect.width / 2.0f - ladderW / 2.0f;
+
+        bool isTopmostInCol = true;
+        for (int j = 0; j < (int)room.elevators.size(); j++) {
+            if (j == i) continue;
+            auto& o = room.elevators[j];
+            if ((int)o.rect.x == (int)e.rect.x && o.rect.y < e.rect.y) {
+                isTopmostInCol = false;
+                break;
+            }
         }
-        if (!e.active) DrawCenteredText("OFF", Rectangle{ e.rect.x - 10, e.rect.y, e.rect.width + 20, 24 }, 14, Color{ 255, 120, 120, a });
+
+        float visBottom = room.floorY[loF];
+        float tileY = e.rect.y + 32.0f;
+        float tileEnd = visBottom - 32.0f;
+
+        Texture2D topTex = isTopmostInCol ? ladderTop : ladderBot;
+        DrawTexturePro(topTex, { 0, 0, 32, 32 }, { drawX, e.rect.y, 32, 32 }, Vector2{0,0}, 0.0f, tint);
+        while (tileY < tileEnd) {
+            float h = std::min(32.0f, tileEnd - tileY);
+            DrawTexturePro(ladderBot, { 0, 0, 32, h }, { drawX, tileY, 32, h }, Vector2{0,0}, 0.0f, tint);
+            tileY += 32.0f;
+        }
+        DrawTexturePro(ladderMid, { 0, 0, 32, 32 }, { drawX, visBottom - 32, 32, 32 }, Vector2{0,0}, 0.0f, tint);
     }
 
     // Sabotage buttons
-    for (auto& btn : room.sabotageButtons) {
-        auto& elev = room.elevators[btn.elevatorIndex];
-        unsigned char a = (elev.floorLow == playerFloor) ? 255 : 70;
-        Color c = elev.used ? Color{ 80, 80, 80, a } : Color{ 200, 60, 60, a };
-        DrawRectangleRec(btn.rect, c);
-        DrawRectangleLinesEx(btn.rect, 1, Color{ 20, 20, 20, a });
-        if (btn.holdTime > 0.0f) {
-            float pct = btn.holdTime / SabotageButton::kRequiredHold;
-            DrawRectangle((int)btn.rect.x, (int)btn.rect.y - 8, (int)(btn.rect.width * pct), 4, Color{ 255, 200, 60, 255 });
+    if (sabotageAnim.texture.id != 0) {
+        float btnSpriteW = (float)sabotageAnim.texture.width / sabotageAnim.frameCount;
+        float btnSpriteH = (float)sabotageAnim.texture.height;
+        for (auto& btn : room.sabotageButtons) {
+            auto& elev = room.elevators[btn.elevatorIndex];
+            unsigned char a = (elev.floorLow == playerFloor) ? 255 : 70;
+            Color tint = elev.used ? Color{ 120, 120, 120, a } : WHITE;
+            tint.a = a;
+            Rectangle src = sabotageAnim.SourceRect(btn.flipped);
+            DrawTexturePro(sabotageAnim.texture, src,
+                { btn.rect.x, btn.rect.y, btnSpriteW, btnSpriteH },
+                Vector2{0,0}, 0.0f, tint);
+        }
+    } else {
+        for (auto& btn : room.sabotageButtons) {
+            auto& elev = room.elevators[btn.elevatorIndex];
+            unsigned char a = (elev.floorLow == playerFloor) ? 255 : 70;
+            Color c = elev.used ? Color{ 80, 80, 80, a } : Color{ 200, 60, 60, a };
+            DrawRectangleRec(btn.rect, c);
+            DrawRectangleLinesEx(btn.rect, 1, Color{ 20, 20, 20, a });
         }
     }
 
