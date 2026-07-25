@@ -14,10 +14,17 @@ Game::Game() {
     playerAnims[Player::ANIM_RUN]   = loadAnim("assets/player_run.png",   6, 0.08f, true);
     playerAnims[Player::ANIM_LADDER]= loadAnim("assets/player_ladder.png", 6, 0.1f,  true);
     playerAnims[Player::ANIM_FALL]  = loadAnim("assets/player_fall.png",  4, 0.2f, false);
+
+    enemyAnims[Enemy::ANIM_SPAWN]  = loadAnim("assets/enemy_spawn.png",  6, 0.1f, false);
+    enemyAnims[Enemy::ANIM_RUN]    = loadAnim("assets/enemy_run.png",    6, 0.1f, true);
+    enemyAnims[Enemy::ANIM_LADDER] = loadAnim("assets/enemy_ladder.png", 6, 0.1f, true);
 }
 
 Game::~Game() {
     for (auto& a : playerAnims) {
+        if (a.texture.id != 0) UnloadTexture(a.texture);
+    }
+    for (auto& a : enemyAnims) {
         if (a.texture.id != 0) UnloadTexture(a.texture);
     }
 }
@@ -201,8 +208,13 @@ void Game::UpdatePlaying(float dt) {
             timeRemaining = 0.0f;
             enemy.Spawn(room.enemySpawn);
             enemySpawned = true;
+            enemyAnims[Enemy::ANIM_SPAWN].Reset();
         }
     } else {
+        for (auto& a : enemyAnims) a.Update(dt);
+        if (enemy.spawning && enemyAnims[Enemy::ANIM_SPAWN].finished) {
+            enemy.spawning = false;
+        }
         enemy.Update(dt, player, room.platforms, room.elevators, kScreenH);
         if (enemy.CatchesPlayer(player)) {
             state = GameState::GAME_OVER;
@@ -387,7 +399,7 @@ void Game::DrawPlaying() {
         }
     }
 
-    if (enemy.active && enemyFloor == playerFloor) enemy.Render();
+    if (enemy.active && enemyFloor == playerFloor) enemy.Render(enemyAnims);
     player.Render(playerAnims);
 
     DrawHUD();

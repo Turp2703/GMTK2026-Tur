@@ -111,7 +111,7 @@ inline RoomLayout GenerateRoom(int roomNumber, const PuzzleTypeInfo& chosenType)
     room.puzzleSlots.push_back(makeSlot(1, 3, false));
     room.puzzleSlots.push_back(makeSlot(5, 3, false));
 
-    room.enemySpawn = { ColumnX(3) - 15, room.floorY[3] - 34 };
+    room.enemySpawn = { ColumnX(3) - 16, room.floorY[3] - 80 };
 
     // Break ~5% of the 8 required slots, guaranteeing at least one stays
     // solvable. The bonus "N" slot is never randomly broken - but on the

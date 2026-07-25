@@ -42,6 +42,7 @@ private:
     std::string message;
 
     std::array<SpriteAnimation, Player::ANIM_COUNT> playerAnims;
+    std::array<SpriteAnimation, Enemy::ANIM_COUNT> enemyAnims;
 
     // --- helpers -------------------------------------------------------
     static Difficulty RoomDifficulty(int roomNumber);

@@ -163,33 +163,43 @@ public:
 // ---------------------------------------------------------------------------
 class Enemy {
 public:
+    enum Anim { ANIM_SPAWN = 0, ANIM_RUN, ANIM_LADDER, ANIM_COUNT };
+
     Vector2 pos{ 0, 0 };
-    Vector2 size{ 30, 34 };
+    Vector2 size{ 32, 80 };
     float speed = 150.0f;
     float climbSpeed = 130.0f;
     bool active = false;
+    bool facingRight = true;
+    bool grounded = false;
+    bool climbing = false;
+    bool spawning = false;
 
     Rectangle Bounds() const { return { pos.x, pos.y, size.x, size.y }; }
 
-    void Spawn(Vector2 at) { pos = at; active = true; }
+    void Spawn(Vector2 at) { pos = at; active = true; spawning = true; }
 
     void Update(float dt, const Player& player, const std::vector<Platform>& platforms, const std::vector<Elevator>& elevators, float screenH) {
         if (!active) return;
 
+        if (spawning) return;
+
         float dx = (player.pos.x + player.size.x / 2) - (pos.x + size.x / 2);
         float dy = (player.pos.y + player.size.y / 2) - (pos.y + size.y / 2);
 
+        if (fabs(dx) > 4) { pos.x += (dx > 0 ? 1 : -1) * speed * dt; facingRight = dx > 0; }
+
         Rectangle elevatorCheck{ pos.x, pos.y, size.x, size.y + 6 };
-        bool onElevator = false;
+        climbing = false;
         for (auto& e : elevators) {
-            if (e.active && CheckCollisionRecs(elevatorCheck, e.rect)) { onElevator = true; break; }
+            if (e.active && CheckCollisionRecs(elevatorCheck, e.rect)) { climbing = true; break; }
         }
 
-        if (fabs(dx) > 4) pos.x += (dx > 0 ? 1 : -1) * speed * dt;
+        grounded = false;
 
-        if (onElevator && fabs(dy) > 6) {
+        if (climbing && fabs(dy) > 6) {
             pos.y += (dy > 0 ? 1 : -1) * climbSpeed * dt;
-        } else if (!onElevator) {
+        } else if (!climbing) {
             static const float gravity = 900.0f;
             vy += gravity * dt;
             pos.y += vy * dt;
@@ -199,10 +209,11 @@ public:
                     if (vy >= 0 && feet - vy * dt <= p.rect.y + 6) {
                         pos.y = p.rect.y - size.y;
                         vy = 0;
+                        grounded = true;
                     }
                 }
             }
-            if (pos.y + size.y > screenH) { pos.y = screenH - size.y; vy = 0; }
+            if (pos.y + size.y > screenH) { pos.y = screenH - size.y; vy = 0; grounded = true; }
         }
     }
 
@@ -210,14 +221,33 @@ public:
         return active && CheckCollisionRecs(Bounds(), player.Bounds());
     }
 
-    void Render() const {
+    void Render(const std::array<SpriteAnimation, ANIM_COUNT>& textures) const {
         if (!active) return;
-        Rectangle b = Bounds();
-        DrawRectangleRec(b, Color{ 200, 50, 50, 255 });
-        DrawRectangleLinesEx(b, 2, Color{ 110, 10, 10, 255 });
-        // single camera "eye" - this is a robot, not an animal
-        DrawCircle((int)(b.x + b.width / 2), (int)(b.y + 10), 5, Color{ 255, 60, 60, 255 });
-        DrawCircle((int)(b.x + b.width / 2), (int)(b.y + 10), 2, WHITE);
+
+        int idx = ANIM_RUN;
+        if (spawning) {
+            idx = ANIM_SPAWN;
+        } else if (climbing) {
+            idx = ANIM_LADDER;
+        }
+
+        const auto& anim = textures[idx];
+        if (anim.texture.id == 0) {
+            Rectangle b = Bounds();
+            DrawRectangleRec(b, Color{ 200, 50, 50, 255 });
+            DrawRectangleLinesEx(b, 2, Color{ 110, 10, 10, 255 });
+            DrawCircle((int)(b.x + b.width / 2), (int)(b.y + 10), 5, Color{ 255, 60, 60, 255 });
+            DrawCircle((int)(b.x + b.width / 2), (int)(b.y + 10), 2, WHITE);
+            return;
+        }
+
+        Rectangle src = anim.SourceRect(!facingRight);
+        float spriteW = (float)anim.texture.width / anim.frameCount;
+        float spriteH = (float)anim.texture.height;
+        float drawX = pos.x + size.x / 2.0f - spriteW / 2.0f;
+        float drawY = pos.y + size.y - spriteH;
+        Rectangle dst = { drawX, drawY, spriteW, spriteH };
+        DrawTexturePro(anim.texture, src, dst, Vector2{0, 0}, 0.0f, WHITE);
     }
 
 private:
