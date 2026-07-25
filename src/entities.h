@@ -149,7 +149,7 @@ public:
         float spriteW = (float)anim.texture.width / anim.frameCount;
         float spriteH = (float)anim.texture.height;
         float drawX = pos.x + size.x / 2.0f - spriteW / 2.0f;
-        float drawY = pos.y + size.y / 2.0f - spriteH / 2.0f;
+        float drawY = pos.y + size.y - spriteH;
         Rectangle dst = { drawX, drawY, spriteW, spriteH };
         DrawTexturePro(anim.texture, src, dst, Vector2{0, 0}, 0.0f, WHITE);
     }
