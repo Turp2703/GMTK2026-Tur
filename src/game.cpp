@@ -18,6 +18,7 @@ Game::Game() {
     enemyAnims[Enemy::ANIM_SPAWN]  = loadAnim("assets/enemy_spawn.png",  6, 0.1f, false);
     enemyAnims[Enemy::ANIM_RUN]    = loadAnim("assets/enemy_run.png",    6, 0.1f, true);
     enemyAnims[Enemy::ANIM_LADDER] = loadAnim("assets/enemy_ladder.png", 6, 0.1f, true);
+    enemyAnims[Enemy::ANIM_HIDDEN] = loadAnim("assets/enemy_hidden.png", 6, 0.1f, true);
 
     sideDoorAnim = loadAnim("assets/side_door.png", 5, 0.2f, false);
 }
@@ -447,7 +448,7 @@ void Game::DrawPlaying() {
         }
     }
 
-    if (enemy.active && enemyFloor == playerFloor) enemy.Render(enemyAnims);
+    if (enemy.active) enemy.Render(enemyAnims, enemyFloor != playerFloor, floorAlpha(enemyFloor));
     player.Render(playerAnims);
 
     DrawHUD();

@@ -163,7 +163,7 @@ public:
 // ---------------------------------------------------------------------------
 class Enemy {
 public:
-    enum Anim { ANIM_SPAWN = 0, ANIM_RUN, ANIM_LADDER, ANIM_COUNT };
+    enum Anim { ANIM_SPAWN = 0, ANIM_RUN, ANIM_LADDER, ANIM_HIDDEN, ANIM_COUNT };
 
     Vector2 pos{ 0, 0 };
     Vector2 size{ 32, 80 };
@@ -221,12 +221,14 @@ public:
         return active && CheckCollisionRecs(Bounds(), player.Bounds());
     }
 
-    void Render(const std::array<SpriteAnimation, ANIM_COUNT>& textures) const {
+    void Render(const std::array<SpriteAnimation, ANIM_COUNT>& textures, bool hidden, unsigned char alpha) const {
         if (!active) return;
 
         int idx = ANIM_RUN;
         if (spawning) {
             idx = ANIM_SPAWN;
+        } else if (hidden) {
+            idx = ANIM_HIDDEN;
         } else if (climbing) {
             idx = ANIM_LADDER;
         }
@@ -234,10 +236,8 @@ public:
         const auto& anim = textures[idx];
         if (anim.texture.id == 0) {
             Rectangle b = Bounds();
-            DrawRectangleRec(b, Color{ 200, 50, 50, 255 });
-            DrawRectangleLinesEx(b, 2, Color{ 110, 10, 10, 255 });
-            DrawCircle((int)(b.x + b.width / 2), (int)(b.y + 10), 5, Color{ 255, 60, 60, 255 });
-            DrawCircle((int)(b.x + b.width / 2), (int)(b.y + 10), 2, WHITE);
+            DrawRectangleRec(b, Color{ 200, 50, 50, alpha });
+            DrawRectangleLinesEx(b, 2, Color{ 110, 10, 10, alpha });
             return;
         }
 
@@ -247,7 +247,7 @@ public:
         float drawX = pos.x + size.x / 2.0f - spriteW / 2.0f;
         float drawY = pos.y + size.y - spriteH;
         Rectangle dst = { drawX, drawY, spriteW, spriteH };
-        DrawTexturePro(anim.texture, src, dst, Vector2{0, 0}, 0.0f, WHITE);
+        DrawTexturePro(anim.texture, src, dst, Vector2{0, 0}, 0.0f, Color{ 255, 255, 255, alpha });
     }
 
 private:
