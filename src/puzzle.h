@@ -52,6 +52,10 @@ using PuzzleFactory = std::function<PuzzlePtr()>;
 
 inline void DrawCenteredText(const std::string& text, Rectangle bounds, int fontSize, Color color) {
     int w = MeasureText(text.c_str(), fontSize);
-    Vector2 pos{ bounds.x + bounds.width / 2 - w / 2.0f, bounds.y + bounds.height / 2 - fontSize / 2.0f };
+    while (w > (int)bounds.width && fontSize > 6) {
+        fontSize--;
+        w = MeasureText(text.c_str(), fontSize);
+    }
+    Vector2 pos{ bounds.x + bounds.width / 2.0f - w / 2.0f, bounds.y + (bounds.height - fontSize) / 2.0f };
     DrawText(text.c_str(), (int)pos.x, (int)pos.y, fontSize, color);
 }

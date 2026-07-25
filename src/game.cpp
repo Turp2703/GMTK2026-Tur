@@ -558,8 +558,9 @@ void Game::DrawPlaying() {
         float dy = s.rect.y + s.rect.height / 2 - sh / 2;
         DrawTexturePro(screenTex, { 0, 0, sw, sh }, { dx, dy, sw, sh }, {0,0}, 0.0f, tint);
         float inset = 10.0f;
+        float vShift = -8.0f;
 
-        Rectangle textArea{ dx + inset, dy + inset, sw - inset * 2, sh - inset * 2 };
+        Rectangle textArea{ dx + inset, dy + inset + vShift, sw - inset * 2, sh - inset * 2 };
 
         if (s.floor != playerFloor) {
             DrawCenteredText("- - -", textArea, 20, Color{ 120, 120, 130, a });

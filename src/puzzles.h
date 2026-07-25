@@ -121,7 +121,7 @@ public:
 
     void RenderQuestion(Rectangle bounds) const override {
         Vector2 center{ bounds.x + bounds.width / 2, bounds.y + bounds.height / 2 };
-        float radius = std::min(bounds.width, bounds.height) / 2.0f - 6;
+        float radius = std::min(bounds.width, bounds.height) / 2.0f - 12;
         DrawCircleLines((int)center.x, (int)center.y, radius, RAYWHITE);
         for (int i = 0; i < 12; i++) {
             float ang = i * 30.0f * DEG2RAD;
