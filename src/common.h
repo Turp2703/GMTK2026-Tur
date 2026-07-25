@@ -64,3 +64,41 @@ inline Difficulty NextDifficulty(Difficulty d) {
     if (d == Difficulty::MEDIUM) return Difficulty::HARD;
     return Difficulty::HARD;
 }
+
+// ---------------------------------------------------------------------------
+// Sprite animation helper
+// ---------------------------------------------------------------------------
+struct SpriteAnimation {
+    Texture2D texture{};
+    int frameCount = 1;
+    float frameTime = 0.12f;
+    float timer = 0.0f;
+    int currentFrame = 0;
+    bool loop = true;
+    bool finished = false;
+
+    void Reset() {
+        timer = 0.0f;
+        currentFrame = 0;
+        finished = false;
+    }
+
+    void Update(float dt) {
+        if (finished) return;
+        timer += dt;
+        if (timer >= frameTime) {
+            timer -= frameTime;
+            currentFrame++;
+            if (currentFrame >= frameCount) {
+                if (loop) { currentFrame = 0; }
+                else { currentFrame = frameCount - 1; finished = true; }
+            }
+        }
+    }
+
+    Rectangle SourceRect(bool flipX) const {
+        float fw = (float)texture.width / frameCount;
+        float fh = (float)texture.height;
+        return Rectangle{ currentFrame * fw, 0, flipX ? -fw : fw, fh };
+    }
+};

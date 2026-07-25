@@ -1,6 +1,26 @@
 #include "game.h"
 
-Game::Game() {}
+Game::Game() {
+    auto loadAnim = [](const char* path, int frames, float frameTime, bool loop) -> SpriteAnimation {
+        SpriteAnimation a;
+        a.texture = LoadTexture(path);
+        a.frameCount = frames;
+        a.frameTime = frameTime;
+        a.loop = loop;
+        return a;
+    };
+    playerAnims[Player::ANIM_SPAWN] = loadAnim("assets/player_spawn.png", 6, 0.25f, false);
+    playerAnims[Player::ANIM_IDLE]  = loadAnim("assets/player_idle.png",  4, 0.15f, true);
+    playerAnims[Player::ANIM_RUN]   = loadAnim("assets/player_run.png",   6, 0.08f, true);
+    playerAnims[Player::ANIM_LADDER]= loadAnim("assets/player_ladder.png", 6, 0.1f,  true);
+    playerAnims[Player::ANIM_FALL]  = loadAnim("assets/player_fall.png",  4, 0.2f, false);
+}
+
+Game::~Game() {
+    for (auto& a : playerAnims) {
+        if (a.texture.id != 0) UnloadTexture(a.texture);
+    }
+}
 
 // =============================================================================
 // Setup
@@ -31,6 +51,7 @@ void Game::StartRoom(int roomNumber, const PuzzleTypeInfo& type) {
     player = Player();
     player.pos = room.playerSpawn;
     player.controlsEnabled = false;
+    playerAnims[Player::ANIM_SPAWN].Reset();
 
     enemy = Enemy();
     enemy.pos = room.enemySpawn;
@@ -126,6 +147,8 @@ void Game::UpdatePlaying(float dt) {
     }
 
     player.Update(dt, room.platforms, room.elevators, kScreenW, kScreenH);
+    if (player.grounded) playerAnims[Player::ANIM_FALL].Reset();
+    for (auto& a : playerAnims) a.Update(dt);
 
     if (startCountdown > 0.0f) return; // nothing else happens until "GO"
 
@@ -365,7 +388,7 @@ void Game::DrawPlaying() {
     }
 
     if (enemy.active && enemyFloor == playerFloor) enemy.Render();
-    player.Render();
+    player.Render(playerAnims);
 
     DrawHUD();
 

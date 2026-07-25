@@ -14,6 +14,7 @@ enum class GameState {
 class Game {
 public:
     Game();
+    ~Game();
     void Update(float dt);
     void Draw();
 
@@ -39,6 +40,8 @@ private:
 
     float messageTimer = 0.0f;
     std::string message;
+
+    std::array<SpriteAnimation, Player::ANIM_COUNT> playerAnims;
 
     // --- helpers -------------------------------------------------------
     static Difficulty RoomDifficulty(int roomNumber);

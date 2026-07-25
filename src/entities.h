@@ -54,8 +54,10 @@ struct PuzzleSlot {
 // ---------------------------------------------------------------------------
 class Player {
 public:
+    enum Anim { ANIM_SPAWN = 0, ANIM_IDLE, ANIM_RUN, ANIM_LADDER, ANIM_FALL, ANIM_COUNT };
+
     Vector2 pos{ 0, 0 };
-    Vector2 size{ 28, 40 };
+    Vector2 size{ 32, 36 };
     float speed = 220.0f;
     float climbSpeed = 160.0f;
     bool onElevator = false;
@@ -64,13 +66,13 @@ public:
     Vector2 velocity{ 0, 0 };
     bool controlsEnabled = true;
 
+    bool grounded = false;
+    bool climbing = false;
+    bool wasMoving = false;
+
     Rectangle Bounds() const { return { pos.x, pos.y, size.x, size.y }; }
 
     void Update(float dt, const std::vector<Platform>& platforms, const std::vector<Elevator>& elevators, float screenW, float screenH) {
-        // Detect elevator overlap using a rect extended a few px below the
-        // feet - raylib's AABB check is strict (touching edges don't
-        // count), so without this a player standing exactly on a platform
-        // right at an elevator's mouth would never register as "on it".
         Rectangle elevatorCheck{ pos.x, pos.y, size.x, size.y + 6 };
         onElevator = false;
         const Elevator* currentElevator = nullptr;
@@ -87,7 +89,9 @@ public:
         pos.x += moveX * speed * dt;
         pos.x = Clamp(pos.x, 0, screenW - size.x);
 
-        bool climbing = controlsEnabled && onElevator && (IsKeyDown(KEY_W) || IsKeyDown(KEY_S));
+        climbing = controlsEnabled && onElevator && (IsKeyDown(KEY_W) || IsKeyDown(KEY_S));
+
+        grounded = false;
 
         if (climbing) {
             float moveY = 0;
@@ -98,12 +102,7 @@ public:
         } else {
             velocity.y += gravity * dt;
             pos.y += velocity.y * dt;
-        }
 
-        // Resolve vertical collisions with platforms (land on top only).
-        // Skipped while actively riding an elevator so it can pass through
-        // the platform bands above/below.
-        if (!climbing) {
             Rectangle after = Bounds();
             for (auto& p : platforms) {
                 if (CheckCollisionRecs(after, p.rect)) {
@@ -112,23 +111,47 @@ public:
                     if (velocity.y >= 0 && prevFeet <= p.rect.y + 6) {
                         pos.y = p.rect.y - size.y;
                         velocity.y = 0;
+                        grounded = true;
                     }
                     after = Bounds();
                 }
             }
         }
 
-        if (pos.y + size.y > screenH) { pos.y = screenH - size.y; velocity.y = 0; }
+        if (pos.y + size.y > screenH) { pos.y = screenH - size.y; velocity.y = 0; grounded = true; }
         if (pos.y < 0) pos.y = 0;
+
+        wasMoving = (moveX != 0 || (climbing && (IsKeyDown(KEY_W) || IsKeyDown(KEY_S))));
         (void)currentElevator;
     }
 
-    void Render() const {
-        Rectangle b = Bounds();
-        DrawRectangleRec(b, Color{ 90, 170, 250, 255 });
-        DrawRectangleLinesEx(b, 2, Color{ 20, 60, 120, 255 });
-        float eyeX = facingRight ? b.x + b.width - 8 : b.x + 4;
-        DrawRectangle((int)eyeX, (int)b.y + 8, 4, 4, WHITE);
+    void Render(const std::array<SpriteAnimation, ANIM_COUNT>& textures) const {
+        int idx = ANIM_IDLE;
+        if (!controlsEnabled) {
+            idx = ANIM_SPAWN;
+        } else if (climbing) {
+            idx = ANIM_LADDER;
+        } else if (!grounded) {
+            idx = ANIM_FALL;
+        } else if (wasMoving) {
+            idx = ANIM_RUN;
+        }
+
+        const auto& anim = textures[idx];
+        if (anim.texture.id == 0) {
+            Rectangle b = Bounds();
+            DrawRectangleRec(b, Color{ 90, 170, 250, 255 });
+            DrawRectangleLinesEx(b, 2, Color{ 20, 60, 120, 255 });
+            return;
+        }
+
+        Rectangle src = anim.SourceRect(!facingRight);
+        float spriteW = (float)anim.texture.width / anim.frameCount;
+        float spriteH = (float)anim.texture.height;
+        float drawX = pos.x + size.x / 2.0f - spriteW / 2.0f;
+        float drawY = pos.y + size.y / 2.0f - spriteH / 2.0f;
+        Rectangle dst = { drawX, drawY, spriteW, spriteH };
+        DrawTexturePro(anim.texture, src, dst, Vector2{0, 0}, 0.0f, WHITE);
     }
 };
 
