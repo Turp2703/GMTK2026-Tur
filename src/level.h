@@ -84,7 +84,7 @@ inline RoomLayout GenerateRoom(int roomNumber, const PuzzleTypeInfo& chosenType)
     }
 
     // Doors on the ground floor at the room borders.
-    const float doorW = 32, doorH = 64;
+    const float doorW = 32.0f, doorH = 64.0f;
     room.entranceDoor = { Rectangle{ 0, room.floorY[0] - doorH, doorW, doorH }, 0, false };
     room.exitDoor = { Rectangle{ kScreenW - doorW, room.floorY[0] - doorH, doorW, doorH }, 0, true };
     room.playerSpawn = { room.entranceDoor.rect.x + 10, room.floorY[0] - 36 };

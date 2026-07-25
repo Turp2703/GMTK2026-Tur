@@ -286,7 +286,7 @@ void Game::UpdatePlaying(float dt) {
             enemy.spawning = false;
         }
         enemy.Update(dt, player, room.platforms, room.elevators, kScreenH);
-        enemy.pos.x = Clamp(enemy.pos.x, 32.0f, kScreenW - enemy.size.x - 32.0f);
+        enemy.pos.x = Clamp(enemy.pos.x, 16.0f, kScreenW - enemy.size.x - 16.0f);
         if (enemy.CatchesPlayer(player)) {
             state = GameState::GAME_OVER;
             return;
@@ -507,17 +507,18 @@ void Game::DrawPlaying() {
     if (sideDoorAnim.texture.id != 0) {
         float spriteW = (float)sideDoorAnim.texture.width / sideDoorAnim.frameCount;
         float spriteH = (float)sideDoorAnim.texture.height;
+        float gapAbove = fmodf(room.entranceDoor.rect.y - 32.0f, 32.0f);
 
-        // Entrance door
-        Rectangle entranceSrc = { entranceDoorFrame * spriteW, 0, spriteW, spriteH };
+        // Entrance door (flipped horizontally)
+        Rectangle entranceSrc = { (entranceDoorFrame + 1) * spriteW, 0, -spriteW, spriteH };
         DrawTexturePro(sideDoorAnim.texture, entranceSrc,
-            { room.entranceDoor.rect.x, room.entranceDoor.rect.y, spriteW, spriteH },
+            { room.entranceDoor.rect.x, room.entranceDoor.rect.y - gapAbove, room.entranceDoor.rect.width, room.entranceDoor.rect.height + gapAbove },
             Vector2{0,0}, 0.0f, WHITE);
 
         // Exit door
         Rectangle exitSrc = { exitDoorFrame * spriteW, 0, spriteW, spriteH };
         DrawTexturePro(sideDoorAnim.texture, exitSrc,
-            { room.exitDoor.rect.x, room.exitDoor.rect.y, spriteW, spriteH },
+            { room.exitDoor.rect.x, room.exitDoor.rect.y - gapAbove, room.exitDoor.rect.width, room.exitDoor.rect.height + gapAbove },
             Vector2{0,0}, 0.0f, WHITE);
     } else {
         DrawRectangleRec(room.entranceDoor.rect, Color{ 60, 100, 60, 255 });
