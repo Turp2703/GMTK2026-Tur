@@ -391,17 +391,20 @@ void Game::DrawPlaying() {
         }
 
         float visBottom = room.floorY[loF];
-        float tileY = e.rect.y + 32.0f;
-        float tileEnd = visBottom - 32.0f;
+
+        float topY = isTopmostInCol ? (e.rect.y - 32.0f) : e.rect.y;
+        float tileY = isTopmostInCol ? e.rect.y : (e.rect.y + 32.0f);
 
         Texture2D topTex = isTopmostInCol ? ladderTop : ladderBot;
-        DrawTexturePro(topTex, { 0, 0, 32, 32 }, { drawX, e.rect.y, 32, 32 }, Vector2{0,0}, 0.0f, tint);
-        while (tileY < tileEnd) {
-            float h = std::min(32.0f, tileEnd - tileY);
+        DrawTexturePro(topTex, { 0, 0, 32, 32 }, { drawX, topY, 32, 32 }, Vector2{0,0}, 0.0f, tint);
+        while (tileY < visBottom) {
+            float h = std::min(32.0f, visBottom - tileY);
             DrawTexturePro(ladderBot, { 0, 0, 32, h }, { drawX, tileY, 32, h }, Vector2{0,0}, 0.0f, tint);
             tileY += 32.0f;
         }
-        DrawTexturePro(ladderMid, { 0, 0, 32, 32 }, { drawX, visBottom - 32, 32, 32 }, Vector2{0,0}, 0.0f, tint);
+        if (loF > 0) {
+            DrawTexturePro(ladderMid, { 0, 0, 32, 32 }, { drawX, visBottom, 32, 32 }, Vector2{0,0}, 0.0f, tint);
+        }
     }
 
     // Sabotage buttons
