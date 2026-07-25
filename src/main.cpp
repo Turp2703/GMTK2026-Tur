@@ -2,7 +2,7 @@
 #include "game.h"
 
 int main() {
-    InitWindow(1280, 720, "AI-Doomer"); // TODO CHANGE WIDTH HEIGHT
+    InitWindow((int)kScreenW, (int)kScreenH, "AI-Doomer");
     SetTargetFPS(60);
 
     Game game;
@@ -12,7 +12,7 @@ int main() {
         game.Update(dt);
 
         BeginDrawing();
-        game.Draw();
+            game.Draw();
         EndDrawing();
     }
 

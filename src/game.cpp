@@ -1,12 +1,5 @@
 #include "game.h"
 
-// TODO MOVE
-inline void DrawCenteredText(const std::string& text, Rectangle bounds, int fontSize, Color color) {
-    int w = MeasureText(text.c_str(), fontSize);
-    Vector2 pos{ bounds.x + bounds.width / 2 - w / 2.0f, bounds.y + bounds.height / 2 - fontSize / 2.0f };
-    DrawText(text.c_str(), (int)pos.x, (int)pos.y, fontSize, color);
-}
-
 Game::Game() {}
 
 // =============================================================================
@@ -19,6 +12,39 @@ Difficulty Game::RoomDifficulty(int roomNumber) {
 }
 
 void Game::GoToTypeSelect(int roomNumber) {
+    Difficulty diff = RoomDifficulty(roomNumber);
+    auto pool = PuzzleTypesForDifficulty(diff);
+    std::shuffle(pool.begin(), pool.end(), RNG());
+
+    typeCandidates.clear();
+    int count = std::min((int)pool.size(), 3);
+    for (int i = 0; i < count; i++) typeCandidates.push_back(*pool[i]);
+
+    state = GameState::TYPE_SELECT;
+}
+
+void Game::StartRoom(int roomNumber, const PuzzleTypeInfo& type) {
+    currentRoom = roomNumber; // TODO REMOVE
+    chosenType = type;
+    room = GenerateRoom(roomNumber, type);
+
+    player = Player();
+    player.pos = room.playerSpawn;
+    player.controlsEnabled = false;
+
+    enemy = Enemy();
+    enemy.pos = room.enemySpawn;
+    enemy.active = false;
+    enemySpawned = false;
+
+    timeRemaining = 60.0f;
+    solvedCount = 0;
+    startCountdown = 3.0f;
+    nearbySlotIndex = -1;
+    message.clear();
+    messageTimer = 0.0f;
+
+    state = GameState::PLAYING;
 }
 
 // =============================================================================
@@ -43,18 +69,156 @@ void Game::UpdateMenu() {
 }
 
 void Game::UpdateTypeSelect() {
+    if (IsKeyPressed(KEY_ONE) && typeCandidates.size() > 0) StartRoom(currentRoom, typeCandidates[0]);
+    else if (IsKeyPressed(KEY_TWO) && typeCandidates.size() > 1) StartRoom(currentRoom, typeCandidates[1]);
+    else if (IsKeyPressed(KEY_THREE) && typeCandidates.size() > 2) StartRoom(currentRoom, typeCandidates[2]);
+}
+
+int Game::FindNearbySlot(int playerFloor) const {
+    Rectangle pb = player.Bounds();
+    Rectangle interactZone{ pb.x - 25, pb.y - 25, pb.width + 50, pb.height + 50 };
+    int best = -1;
+    float bestDist = 1e9f;
+    for (int i = 0; i < (int)room.puzzleSlots.size(); i++) {
+        const auto& s = room.puzzleSlots[i];
+        if (s.state != SlotState::UNSOLVED) continue;
+        if (s.floor != playerFloor) continue;
+        if (CheckCollisionRecs(interactZone, s.rect)) {
+            float cx = s.rect.x + s.rect.width / 2 - (pb.x + pb.width / 2);
+            float cy = s.rect.y + s.rect.height / 2 - (pb.y + pb.height / 2);
+            float d = cx * cx + cy * cy;
+            if (d < bestDist) { bestDist = d; best = i; }
+        }
+    }
+    return best;
+}
+
+void Game::AnswerSlot(int slotIndex, int chosenChoice) {
+    if (slotIndex < 0) return;
+    auto& slot = room.puzzleSlots[slotIndex];
+    if (slot.state != SlotState::UNSOLVED) return;
+
+    if (chosenChoice == slot.puzzle->GetCorrectIndex()) {
+        slot.state = SlotState::SOLVED;
+        int pts = slot.puzzle->GetPoints();
+        score += pts;
+        if (!slot.isBonus) solvedCount++;
+        message = TextFormat(slot.isBonus ? "Bonus solved! +%d pts" : "Correct! +%d pts", pts);
+        messageTimer = 1.2f;
+    } else {
+        slot.state = SlotState::WRONG_COOLDOWN;
+        slot.cooldownTimer = PuzzleSlot::kCooldown;
+        timeRemaining = std::max(0.0f, timeRemaining - 5.0f);
+        message = "Wrong answer (-5s)";
+        messageTimer = 1.0f;
+    }
 }
 
 void Game::UpdatePlaying(float dt) {
+    // Elevators always tick (so they can reactivate) even during the intro countdown.
+    for (auto& e : room.elevators) e.Update(dt);
+
+    if (startCountdown > 0.0f) {
+        startCountdown -= dt;
+        player.controlsEnabled = false;
+    } else {
+        player.controlsEnabled = true;
+    }
+
+    player.Update(dt, room.platforms, room.elevators, kScreenW, kScreenH);
+
+    if (startCountdown > 0.0f) return; // nothing else happens until "GO"
+
+    if (messageTimer > 0) messageTimer -= dt;
+
+    int playerFloor = room.FloorForY(player.pos.y + player.size.y);
+
+    // Sabotage buttons - hold F for 3s while standing near one.
+    Rectangle pb = player.Bounds();
+    Rectangle interactZone{ pb.x - 20, pb.y - 20, pb.width + 40, pb.height + 40 };
+    for (auto& btn : room.sabotageButtons) {
+        auto& elev = room.elevators[btn.elevatorIndex];
+        bool near = CheckCollisionRecs(interactZone, btn.rect) && elev.floorLow == playerFloor;
+        if (near && !elev.used && IsKeyDown(KEY_F)) {
+            btn.holdTime += dt;
+            if (btn.holdTime >= SabotageButton::kRequiredHold) {
+                elev.active = false;
+                elev.used = true;
+                elev.reactivateTimer = 5.0f;
+                btn.holdTime = 0.0f;
+                message = "Elevator sabotaged!";
+                messageTimer = 1.2f;
+            }
+        } else {
+            btn.holdTime = 0.0f;
+        }
+    }
+
+    // Puzzle slots: cooldown ticking + regeneration.
+    for (auto& slot : room.puzzleSlots) {
+        if (slot.state == SlotState::WRONG_COOLDOWN) {
+            slot.cooldownTimer -= dt;
+            if (slot.cooldownTimer <= 0.0f) {
+                slot.puzzle = slot.regenerate();
+                slot.state = SlotState::UNSOLVED;
+            }
+        }
+    }
+
+    nearbySlotIndex = FindNearbySlot(playerFloor);
+    if (nearbySlotIndex >= 0) {
+        if (IsKeyPressed(KEY_ONE)) AnswerSlot(nearbySlotIndex, 0);
+        else if (IsKeyPressed(KEY_TWO)) AnswerSlot(nearbySlotIndex, 1);
+        else if (IsKeyPressed(KEY_THREE)) AnswerSlot(nearbySlotIndex, 2);
+    }
+
+    if (!enemySpawned) {
+        timeRemaining -= dt;
+        if (timeRemaining <= 0.0f) {
+            timeRemaining = 0.0f;
+            enemy.Spawn(room.enemySpawn);
+            enemySpawned = true;
+        }
+    } else {
+        enemy.Update(dt, player, room.platforms, room.elevators, kScreenH);
+        if (enemy.CatchesPlayer(player)) {
+            state = GameState::GAME_OVER;
+            return;
+        }
+    }
+
+    if (solvedCount >= room.requiredSolves && CheckCollisionRecs(player.Bounds(), room.exitDoor.rect)) {
+        if (currentRoom >= kMaxRoom) {
+            state = GameState::WIN;
+        } else {
+            state = GameState::ROOM_COMPLETE;
+            messageTimer = 1.6f;
+        }
+    }
 }
 
 void Game::UpdateRoomComplete(float dt) {
+    messageTimer -= dt;
+    if (messageTimer <= 0) {
+        currentRoom++;
+        GoToTypeSelect(currentRoom);
+    }
 }
 
 void Game::UpdateGameOver() {
+    if (IsKeyPressed(KEY_ENTER)) {
+        currentRoom = 1;
+        score = 0;
+        state = GameState::MENU;
+    }
 }
 
 void Game::UpdateWin() {
+    if (IsKeyPressed(KEY_ENTER)) {
+        currentRoom = 1;
+        score = 0;
+        state = GameState::MENU;
+    }
 }
 
 // =============================================================================
@@ -73,27 +237,176 @@ void Game::Draw() {
 }
 
 void Game::DrawMenu() { // TODO WIDTH 1280
-    DrawCenteredText("AI-DOOMER", Rectangle{ 0, 180, 1280, 80 }, 60, RAYWHITE);
-    DrawCenteredText("You have a few minutes to prove you are better than AI.", Rectangle{ 0, 270, 1280, 30 }, 22, GRAY);
-    DrawCenteredText("Or else... they will get you.", Rectangle{ 0, 300, 1280, 30 }, 22, Color{ 220, 80, 80, 255 });
-    DrawCenteredText("AD move | W/S use elevator | 1/2/3 answer | Hold F to sabotage an elevator", Rectangle{ 0, 360, 1280, 30 }, 18, GRAY);
-    DrawCenteredText("Press ENTER to start", Rectangle{ 0, 460, 1280, 40 }, 26, YELLOW);
+    DrawCenteredText("AI-DOOMER", Rectangle{ 0, 180, kScreenW, 80 }, 60, RAYWHITE);
+    DrawCenteredText("You have a few minutes to prove you are better than AI.", Rectangle{ 0, 270, kScreenW, 30 }, 22, GRAY);
+    DrawCenteredText("Or else... they will get you.", Rectangle{ 0, 300, kScreenW, 30 }, 22, Color{ 220, 80, 80, 255 });
+    DrawCenteredText("AD move | W/S use elevator | 1/2/3 answer | Hold F to sabotage an elevator", Rectangle{ 0, 360, kScreenW, 30 }, 18, GRAY);
+    DrawCenteredText("Press ENTER to start", Rectangle{ 0, 460, kScreenW, 40 }, 26, YELLOW);
 }
 
 void Game::DrawTypeSelect() {
+    DrawCenteredText(TextFormat("SECTOR %d - Choose your test type", currentRoom), Rectangle{ 0, 100, kScreenW, 50 }, 34, RAYWHITE);
+    DrawCenteredText(TextFormat("Difficulty: %s", DifficultyName(RoomDifficulty(currentRoom))), Rectangle{ 0, 150, kScreenW, 30 }, 20, DifficultyColor(RoomDifficulty(currentRoom)));
+
+    float cardW = 340, cardH = 260, gap = 40;
+    float totalW = cardW * typeCandidates.size() + gap * (typeCandidates.size() > 0 ? typeCandidates.size() - 1 : 0);
+    float startX = kScreenW / 2 - totalW / 2;
+    float y = 250;
+    for (int i = 0; i < (int)typeCandidates.size(); i++) {
+        const auto& opt = typeCandidates[i];
+        Rectangle card{ startX + i * (cardW + gap), y, cardW, cardH };
+        DrawRectangleRec(card, Color{ 30, 30, 42, 255 });
+        DrawRectangleLinesEx(card, 3, DifficultyColor(opt.difficulty));
+        DrawCenteredText(TextFormat("[%d]", i + 1), Rectangle{ card.x, card.y + 16, card.width, 26 }, 20, GRAY);
+        DrawCenteredText(opt.name, Rectangle{ card.x, card.y + 60, card.width, 40 }, 28, RAYWHITE);
+        DrawCenteredText(opt.description, Rectangle{ card.x + 10, card.y + 130, card.width - 20, 80 }, 16, RAYWHITE);
+    }
+    DrawCenteredText("Press 1, 2 or 3", Rectangle{ 0, y + cardH + 40, kScreenW, 30 }, 22, YELLOW);
 }
 
 void Game::DrawPlaying() {
+    int playerFloor = room.FloorForY(player.pos.y + player.size.y);
+    int enemyFloor = enemy.active ? room.FloorForY(enemy.pos.y + enemy.size.y) : -1;
+
+    auto floorAlpha = [&](int floor) -> unsigned char { return floor == playerFloor ? 255 : 70; };
+
+    // Platforms
+    for (auto& p : room.platforms) {
+        unsigned char a = floorAlpha(p.floor);
+        DrawRectangleRec(p.rect, Color{ 70, 60, 90, a });
+        DrawRectangleLinesEx(p.rect, 1, Color{ 110, 100, 140, a });
+    }
+
+    // Elevators
+    for (auto& e : room.elevators) {
+        int loF = e.floorLow, hiF = e.floorHigh;
+        unsigned char a = (loF == playerFloor || hiF == playerFloor) ? 255 : 70;
+        Color base = e.active ? Color{ 120, 90, 40, a } : Color{ 140, 40, 40, a };
+        DrawRectangleRec(e.rect, Fade(base, e.active ? 0.7f : 0.5f));
+        for (float y = e.rect.y; y < e.rect.y + e.rect.height; y += 14) {
+            DrawLineEx(Vector2{ e.rect.x, y }, Vector2{ e.rect.x + e.rect.width, y }, 2, Color{ 200, 160, 90, a });
+        }
+        if (!e.active) DrawCenteredText("OFF", Rectangle{ e.rect.x - 10, e.rect.y, e.rect.width + 20, 24 }, 14, Color{ 255, 120, 120, a });
+    }
+
+    // Sabotage buttons
+    for (auto& btn : room.sabotageButtons) {
+        auto& elev = room.elevators[btn.elevatorIndex];
+        unsigned char a = (elev.floorLow == playerFloor) ? 255 : 70;
+        Color c = elev.used ? Color{ 80, 80, 80, a } : Color{ 200, 60, 60, a };
+        DrawRectangleRec(btn.rect, c);
+        DrawRectangleLinesEx(btn.rect, 1, Color{ 20, 20, 20, a });
+        if (btn.holdTime > 0.0f) {
+            float pct = btn.holdTime / SabotageButton::kRequiredHold;
+            DrawRectangle((int)btn.rect.x, (int)btn.rect.y - 8, (int)(btn.rect.width * pct), 4, Color{ 255, 200, 60, 255 });
+        }
+    }
+
+    // Doors
+    DrawRectangleRec(room.entranceDoor.rect, Color{ 60, 100, 60, 255 });
+    DrawRectangleLinesEx(room.entranceDoor.rect, 2, Color{ 30, 60, 30, 255 });
+    DrawCenteredText("A", room.entranceDoor.rect, 20, RAYWHITE);
+
+    bool exitReady = solvedCount >= room.requiredSolves;
+    DrawRectangleRec(room.exitDoor.rect, exitReady ? Color{ 60, 160, 90, 255 } : Color{ 90, 60, 60, 255 });
+    DrawRectangleLinesEx(room.exitDoor.rect, 2, Color{ 30, 30, 30, 255 });
+    DrawCenteredText("B", room.exitDoor.rect, 20, RAYWHITE);
+
+    // Puzzle slots
+    for (int i = 0; i < (int)room.puzzleSlots.size(); i++) {
+        auto& s = room.puzzleSlots[i];
+        unsigned char a = (s.floor == playerFloor) ? 255 : 70;
+
+        Color bg = Color{ 40, 44, 60, a };
+        if (s.state == SlotState::SOLVED) bg = Color{ 30, 90, 40, a };
+        else if (s.state == SlotState::WRONG_COOLDOWN) bg = Color{ 130, 40, 40, a };
+        else if (s.state == SlotState::BROKEN) bg = Color{ 35, 35, 35, a };
+
+        DrawRectangleRec(s.rect, bg);
+        Color border = s.isBonus ? Color{ 230, 190, 60, a } : Color{ 90, 140, 220, a };
+        DrawRectangleLinesEx(s.rect, s.isBonus ? 3 : 2, border);
+
+        if (s.floor != playerFloor) {
+            DrawCenteredText("- - -", s.rect, 20, Color{ 120, 120, 130, a });
+        } else if (s.state == SlotState::BROKEN) {
+            DrawCenteredText("OUT OF\nORDER", s.rect, 14, Color{ 150, 150, 150, 255 });
+        } else if (s.state == SlotState::SOLVED) {
+            DrawCenteredText("OK", s.rect, 26, Color{ 150, 255, 150, 255 });
+        } else if (s.state == SlotState::WRONG_COOLDOWN) {
+            DrawCenteredText("X", s.rect, 30, Color{ 255, 150, 150, 255 });
+            float pct = 1.0f - (s.cooldownTimer / PuzzleSlot::kCooldown);
+            DrawRectangle((int)s.rect.x, (int)s.rect.y - 8, (int)(s.rect.width * pct), 4, Color{ 255, 200, 60, 255 });
+        } else {
+            Rectangle inner{ s.rect.x + 4, s.rect.y + 4, s.rect.width - 8, s.rect.height - 8 };
+            s.puzzle->RenderQuestion(inner);
+        }
+
+        if (s.isBonus && s.floor == playerFloor && s.state != SlotState::BROKEN) {
+            DrawCenteredText("BONUS", Rectangle{ s.rect.x, s.rect.y - 18, s.rect.width, 16 }, 12, Color{ 230, 190, 60, 255 });
+        }
+    }
+
+    // Answer choices for the nearby active slot.
+    if (nearbySlotIndex >= 0 && nearbySlotIndex < (int)room.puzzleSlots.size()) {
+        auto& s = room.puzzleSlots[nearbySlotIndex];
+        if (s.state == SlotState::UNSOLVED) {
+            auto choices = s.puzzle->GetChoices();
+            float btnW = 130, btnH = 34, gap = 8;
+            float totalW = btnW * 3 + gap * 2;
+            float x = s.rect.x + s.rect.width / 2 - totalW / 2;
+            float y = s.rect.y - 34 - btnH;
+            for (int c = 0; c < 3; c++) {
+                Rectangle btn{ x + c * (btnW + gap), y, btnW, btnH };
+                DrawRectangleRec(btn, Color{ 50, 54, 70, 255 });
+                DrawRectangleLinesEx(btn, 2, Color{ 150, 170, 220, 255 });
+                DrawCenteredText(TextFormat("[%d] %s", c + 1, choices[c].c_str()), btn, 14, RAYWHITE);
+            }
+        }
+    }
+
+    if (enemy.active && enemyFloor == playerFloor) enemy.Render();
+    player.Render();
+
+    DrawHUD();
+
+    if (startCountdown > 0.0f) {
+        DrawRectangle(0, 0, (int)kScreenW, (int)kScreenH, Color{ 0, 0, 0, 120 });
+        int n = (int)ceilf(startCountdown);
+        DrawCenteredText(n > 0 ? TextFormat("%d", n) : "GO!", Rectangle{ 0, kScreenH / 2 - 60, kScreenW, 100 }, 90, RAYWHITE);
+    }
+
+    if (messageTimer > 0 && !message.empty() && state == GameState::PLAYING) {
+        DrawCenteredText(message, Rectangle{ 0, 90, kScreenW, 30 }, 22, YELLOW);
+    }
 }
 
 void Game::DrawHUD() {
+    DrawRectangle(0, 0, (int)kScreenW, 50, Color{ 8, 8, 12, 220 });
+    DrawText(TextFormat("Sector: %d", currentRoom), 16, 14, 20, RAYWHITE);
+    DrawText(TextFormat("Score: %d", score), 170, 14, 20, RAYWHITE);
+    DrawText(TextFormat("Tests: %d/%d", solvedCount, room.requiredSolves), 340, 14, 20, RAYWHITE);
+
+    Color timeColor = enemySpawned ? RED : (timeRemaining < 15 ? ORANGE : RAYWHITE);
+    DrawText(TextFormat(enemySpawned ? "Time: 0 - CONTAINMENT UNIT DISPATCHED" : "Time: %d", (int)ceilf(timeRemaining)), 520, 14, 20, timeColor);
+    DrawText(chosenType.name.c_str(), (int)kScreenW - 220, 14, 20, DifficultyColor(chosenType.difficulty));
 }
 
 void Game::DrawRoomComplete() {
+    DrawRectangle(0, 0, (int)kScreenW, (int)kScreenH, Color{ 0, 0, 0, 150 });
+    DrawCenteredText("SECTOR CLEARED", Rectangle{ 0, kScreenH / 2 - 40, kScreenW, 60 }, 48, Color{ 120, 255, 140, 255 });
 }
 
 void Game::DrawGameOver() {
+    DrawRectangle(0, 0, (int)kScreenW, (int)kScreenH, Color{ 0, 0, 0, 180 });
+    DrawCenteredText("EVALUATION FAILED", Rectangle{ 0, kScreenH / 2 - 100, kScreenW, 60 }, 48, Color{ 255, 90, 90, 255 });
+    DrawCenteredText("Containment Unit Dispatched", Rectangle{ 0, kScreenH / 2 - 45, kScreenW, 30 }, 20, Color{ 220, 150, 150, 255 });
+    DrawCenteredText(TextFormat("Final score: %d", score), Rectangle{ 0, kScreenH / 2 - 5, kScreenW, 40 }, 26, RAYWHITE);
+    DrawCenteredText("Press ENTER to return to the menu", Rectangle{ 0, kScreenH / 2 + 40, kScreenW, 40 }, 22, YELLOW);
 }
 
 void Game::DrawWin() {
+    DrawCenteredText("HUMANITY: NOT OBSOLETE", Rectangle{ 0, kScreenH / 2 - 110, kScreenW, 60 }, 46, Color{ 255, 215, 90, 255 });
+    DrawCenteredText("You proved you are better than AI.", Rectangle{ 0, kScreenH / 2 - 50, kScreenW, 30 }, 22, RAYWHITE);
+    DrawCenteredText(TextFormat("Final score: %d", score), Rectangle{ 0, kScreenH / 2 - 10, kScreenW, 40 }, 28, RAYWHITE);
+    DrawCenteredText("Press ENTER to return to the menu", Rectangle{ 0, kScreenH / 2 + 40, kScreenW, 40 }, 22, YELLOW);
 }

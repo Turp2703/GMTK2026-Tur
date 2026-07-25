@@ -1,5 +1,6 @@
 #pragma once
 #include "common.h"
+#include "level.h"
 
 enum class GameState {
     MENU,
@@ -20,12 +21,30 @@ private:
     GameState state = GameState::MENU;
 
     int currentRoom = 1;
+    static constexpr int kMaxRoom = 5;
     int score = 0;
+
+    std::vector<PuzzleTypeInfo> typeCandidates;
+    PuzzleTypeInfo chosenType{ "", "", Difficulty::EASY, nullptr };
+
+    RoomLayout room;
+    Player player;
+    Enemy enemy;
+
+    float timeRemaining = 60.0f;
+    bool enemySpawned = false;
+    int solvedCount = 0;
+    float startCountdown = 0.0f;
+    int nearbySlotIndex = -1;
+
+    float messageTimer = 0.0f;
+    std::string message;
 
     // --- helpers -------------------------------------------------------
     static Difficulty RoomDifficulty(int roomNumber);
 
     void GoToTypeSelect(int roomNumber);
+    void StartRoom(int roomNumber, const PuzzleTypeInfo& type);
 
     void UpdateMenu();
     void UpdateTypeSelect();
@@ -41,4 +60,7 @@ private:
     void DrawGameOver();
     void DrawWin();
     void DrawHUD();
+
+    int FindNearbySlot(int playerFloor) const;
+    void AnswerSlot(int slotIndex, int chosenChoice);
 };

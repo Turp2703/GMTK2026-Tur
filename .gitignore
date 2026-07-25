@@ -32,7 +32,6 @@
 *.app
 
 # Extra
-Ideas.txt
 local-build.bat
 local-compile.bat
 local-run.bat
@@ -40,3 +39,5 @@ web-build.bat
 web-compile.bat
 web-run.bat
 build/
+build-web/
+docs/
