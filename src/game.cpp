@@ -32,6 +32,7 @@ Game::Game() {
     floorLeft = LoadTexture("assets/floor_left.png");
     floorRight = LoadTexture("assets/floor_right.png");
     floorLowest = LoadTexture("assets/floor_lowest.png");
+    screenTex = LoadTexture("assets/screen.png");
 }
 
 Game::~Game() {
@@ -53,6 +54,7 @@ Game::~Game() {
     if (floorLeft.id != 0) UnloadTexture(floorLeft);
     if (floorRight.id != 0) UnloadTexture(floorRight);
     if (floorLowest.id != 0) UnloadTexture(floorLowest);
+    if (screenTex.id != 0) UnloadTexture(screenTex);
 }
 
 // =============================================================================
@@ -546,32 +548,36 @@ void Game::DrawPlaying() {
         auto& s = room.puzzleSlots[i];
         unsigned char a = (s.floor == playerFloor) ? 255 : 70;
 
-        Color bg = Color{ 40, 44, 60, a };
-        if (s.state == SlotState::SOLVED) bg = Color{ 30, 90, 40, a };
-        else if (s.state == SlotState::WRONG_COOLDOWN) bg = Color{ 130, 40, 40, a };
-        else if (s.state == SlotState::BROKEN) bg = Color{ 35, 35, 35, a };
+        Color tint{ 255, 255, 255, a };
+        if (s.state == SlotState::SOLVED) tint = Color{ 30, 90, 40, a };
+        else if (s.state == SlotState::WRONG_COOLDOWN) tint = Color{ 130, 40, 40, a };
+        else if (s.state == SlotState::BROKEN) tint = Color{ 35, 35, 35, a };
 
-        DrawRectangleRec(s.rect, bg);
-        Color border = s.isBonus ? Color{ 230, 190, 60, a } : Color{ 90, 140, 220, a };
-        DrawRectangleLinesEx(s.rect, s.isBonus ? 3 : 2, border);
+        float sw = (float)screenTex.width, sh = (float)screenTex.height;
+        float dx = s.rect.x + s.rect.width / 2 - sw / 2;
+        float dy = s.rect.y + s.rect.height / 2 - sh / 2;
+        DrawTexturePro(screenTex, { 0, 0, sw, sh }, { dx, dy, sw, sh }, {0,0}, 0.0f, tint);
+        float inset = 10.0f;
+
+        Rectangle textArea{ dx + inset, dy + inset, sw - inset * 2, sh - inset * 2 };
 
         if (s.floor != playerFloor) {
-            DrawCenteredText("- - -", s.rect, 20, Color{ 120, 120, 130, a });
+            DrawCenteredText("- - -", textArea, 20, Color{ 120, 120, 130, a });
         } else if (s.state == SlotState::BROKEN) {
-            DrawCenteredText("OUT OF\nORDER", s.rect, 14, Color{ 150, 150, 150, 255 });
+            DrawCenteredText("OUT OF\nORDER", textArea, 14, Color{ 150, 150, 150, 255 });
         } else if (s.state == SlotState::SOLVED) {
-            DrawCenteredText("OK", s.rect, 26, Color{ 150, 255, 150, 255 });
+            DrawCenteredText("OK", textArea, 26, Color{ 150, 255, 150, 255 });
         } else if (s.state == SlotState::WRONG_COOLDOWN) {
-            DrawCenteredText("X", s.rect, 30, Color{ 255, 150, 150, 255 });
+            DrawCenteredText("X", textArea, 30, Color{ 255, 150, 150, 255 });
             float pct = 1.0f - (s.cooldownTimer / PuzzleSlot::kCooldown);
-            DrawRectangle((int)s.rect.x, (int)s.rect.y - 8, (int)(s.rect.width * pct), 4, Color{ 255, 200, 60, 255 });
+            DrawRectangle((int)textArea.x, (int)textArea.y - 8, (int)(textArea.width * pct), 4, Color{ 255, 200, 60, 255 });
         } else {
-            Rectangle inner{ s.rect.x + 4, s.rect.y + 4, s.rect.width - 8, s.rect.height - 8 };
+            Rectangle inner{ textArea.x + 4, textArea.y + 4, textArea.width - 8, textArea.height - 8 };
             s.puzzle->RenderQuestion(inner);
         }
 
         if (s.isBonus && s.floor == playerFloor && s.state != SlotState::BROKEN) {
-            DrawCenteredText("BONUS", Rectangle{ s.rect.x, s.rect.y - 18, s.rect.width, 16 }, 12, Color{ 230, 190, 60, 255 });
+            DrawCenteredText("BONUS", Rectangle{ textArea.x, dy - 20, textArea.width, 16 }, 12, Color{ 230, 190, 60, 255 });
         }
     }
 

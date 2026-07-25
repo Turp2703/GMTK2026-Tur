@@ -57,6 +57,7 @@ private:
     Texture2D ladderMid{};
     Texture2D ladderBot{};
     SpriteAnimation sabotageAnim;
+    Texture2D screenTex{};
 
     Texture2D floorTop{};
     Texture2D floorTopLeft{};

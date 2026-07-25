@@ -91,11 +91,13 @@ inline RoomLayout GenerateRoom(int roomNumber, const PuzzleTypeInfo& chosenType)
 
     // Puzzle slot helper.
     const float slotW = 90, slotH = 70;
+    const float screenH = 105.0f;
     auto makeSlot = [&](int col, int floor, bool bonus) {
         PuzzleSlot slot;
         slot.floor = floor;
         slot.isBonus = bonus;
-        slot.rect = Rectangle{ ColumnX(col) - slotW / 2, room.floorY[floor] - slotH, slotW, slotH };
+        float spriteBottom = room.floorY[floor];
+        slot.rect = Rectangle{ ColumnX(col) - slotW / 2, spriteBottom - slotH - (screenH - slotH) / 2, slotW, slotH };
         slot.regenerate = bonus ? PuzzleFactory([nextDiff]() { return PickRandomTypeInfo(nextDiff).factory(); })
                                  : chosenType.factory;
         slot.puzzle = slot.regenerate();
