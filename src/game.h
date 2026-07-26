@@ -139,4 +139,17 @@ private:
     GameState fadeNextState = GameState::MENU;
     bool fadeHasAction = false;
     int fadeActionType = 0;
+
+    Music musicMenu{};
+    Music musicPuzzles{};
+    Music musicEscape{};
+    Music* activeMusic = nullptr;
+    float activeVolume = 0.0f;
+    Music* fadeFrom = nullptr;
+    float fadeVolume = 0.0f;
+    float fadeTimer = 0.0f;
+    static constexpr float kFadeDuration = 0.5f;
+    Music* desiredMusic = nullptr;
+
+    void CrossfadeTo(Music& target);
 };

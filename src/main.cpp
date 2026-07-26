@@ -16,6 +16,7 @@ void UpdateDrawFrame(void* arg) {
 
 int main() {
     InitWindow((int)kScreenW, (int)kScreenH, "NOT-OBSOLETTE");
+    InitAudioDevice();
     
     Game* game = new Game();
     
@@ -26,7 +27,8 @@ int main() {
     while (!WindowShouldClose()) UpdateDrawFrame(game);
 #endif
 
-    CloseWindow();
     delete game;
+    CloseAudioDevice();
+    CloseWindow();
     return 0;
 }

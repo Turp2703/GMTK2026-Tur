@@ -87,6 +87,15 @@ Game::Game() {
             loadingLabel = "Loading particles...";
         },
         [this]() {
+            musicMenu = LoadMusicStream("assets/music_menu.wav");
+            musicPuzzles = LoadMusicStream("assets/music_puzzles.wav");
+            musicEscape = LoadMusicStream("assets/music_escape.wav");
+            SetMusicVolume(musicMenu, 0.0f);
+            SetMusicVolume(musicPuzzles, 0.0f);
+            SetMusicVolume(musicEscape, 0.0f);
+            loadingLabel = "Loading music...";
+        },
+        [this]() {
             loadingLabel = "Ready!";
         }
     };
@@ -124,6 +133,20 @@ Game::~Game() {
     }
     if (runParticleTex.id != 0) UnloadTexture(runParticleTex);
     if (doorParticleAnim.texture.id != 0) UnloadTexture(doorParticleAnim.texture);
+    if (musicMenu.stream.buffer != nullptr) UnloadMusicStream(musicMenu);
+    if (musicPuzzles.stream.buffer != nullptr) UnloadMusicStream(musicPuzzles);
+    if (musicEscape.stream.buffer != nullptr) UnloadMusicStream(musicEscape);
+}
+
+void Game::CrossfadeTo(Music& target) {
+    if (activeMusic == &target && activeVolume > 0.0f) return;
+    if (fadeFrom == &target) return;
+    fadeFrom = activeMusic;
+    fadeVolume = activeVolume;
+    activeMusic = &target;
+    activeVolume = 0.0f;
+    fadeTimer = 0.0f;
+    PlayMusicStream(target);
 }
 
 // =============================================================================
@@ -221,6 +244,26 @@ void Game::Update(float dt) {
         fadeAlpha = std::max(0.0f, fadeAlpha - fadeSpeed * dt);
     }
 
+    // Music crossfade
+    if (activeMusic) UpdateMusicStream(*activeMusic);
+    if (fadeFrom) {
+        UpdateMusicStream(*fadeFrom);
+        fadeTimer += dt;
+        float t = std::min(1.0f, fadeTimer / kFadeDuration);
+        fadeVolume = 1.0f - t;
+        activeVolume = t;
+        SetMusicVolume(*fadeFrom, fadeVolume);
+        SetMusicVolume(*activeMusic, activeVolume);
+        if (t >= 1.0f) {
+            StopMusicStream(*fadeFrom);
+            fadeFrom = nullptr;
+            fadeVolume = 0.0f;
+        }
+    } else if (activeMusic) {
+        SetMusicVolume(*activeMusic, 1.0f);
+        activeVolume = 1.0f;
+    }
+
     switch (state) {
         case GameState::LOADING: UpdateLoading(); break;
         case GameState::MENU: UpdateMenu(); break;
@@ -242,6 +285,10 @@ void Game::UpdateLoading() {
     if (loadingStep >= (int)loadingSteps.size()) {
         state = GameState::MENU;
         screenTimer = 0.0f;
+        PlayMusicStream(musicMenu);
+        activeMusic = &musicMenu;
+        activeVolume = 1.0f;
+        SetMusicVolume(musicMenu, 1.0f);
     }
 }
 
@@ -307,6 +354,11 @@ void Game::AnswerSlot(int slotIndex, int chosenChoice) {
 void Game::UpdatePlaying(float dt) {
     // Elevators always tick (so they can reactivate) even during the intro countdown.
     for (auto& e : room.elevators) e.Update(dt);
+
+    // Music: puzzles before enemy, escape after
+    if (!enemySpawned) {
+        CrossfadeTo(musicPuzzles);
+    }
 
     if (startCountdown > 0.0f) {
         startCountdown -= dt;
@@ -491,6 +543,7 @@ void Game::UpdatePlaying(float dt) {
             enemy.Spawn(room.enemySpawn);
             enemySpawned = true;
             enemyAnims[Enemy::ANIM_SPAWN].Reset();
+            CrossfadeTo(musicEscape);
         }
     } else {
         for (auto& a : enemyAnims) a.Update(dt);
@@ -528,6 +581,7 @@ void Game::UpdatePlaying(float dt) {
         if (enemy.CatchesPlayer(player)) {
             screenTimer = 0.0f;
             state = GameState::GAME_OVER;
+            CrossfadeTo(musicMenu);
             return;
         }
     }
@@ -536,9 +590,11 @@ void Game::UpdatePlaying(float dt) {
         if (currentRoom >= kMaxRoom) {
             screenTimer = 0.0f;
             state = GameState::WIN;
+            CrossfadeTo(musicMenu);
         } else {
             state = GameState::ROOM_COMPLETE;
             messageTimer = 1.6f;
+            CrossfadeTo(musicMenu);
         }
     }
 }
