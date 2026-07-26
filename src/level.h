@@ -143,6 +143,7 @@ inline RoomLayout GenerateRoom(int roomNumber, const PuzzleTypeInfo& chosenType)
     for (auto& slot : room.puzzleSlots) {
         if (!slot.isBonus && slot.state != SlotState::BROKEN) room.requiredSolves++;
     }
+    room.requiredSolves = std::min(room.requiredSolves, 6);
 
     return room;
 }

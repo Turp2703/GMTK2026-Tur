@@ -175,6 +175,7 @@ void Game::AnswerSlot(int slotIndex, int chosenChoice) {
         int pts = slot.puzzle->GetPoints();
         score += pts;
         if (!slot.isBonus) solvedCount++;
+        else solvedCount += 2;
         message = TextFormat(slot.isBonus ? "Bonus solved! +%d pts" : "Correct! +%d pts", pts);
         messageTimer = 1.2f;
     } else {
@@ -676,7 +677,7 @@ void Game::DrawRoomComplete() {
 void Game::DrawGameOver() {
     DrawRectangle(0, 0, (int)kScreenW, (int)kScreenH, Color{ 0, 0, 0, 180 });
     DrawCenteredText("EVALUATION FAILED", Rectangle{ 0, kScreenH / 2 - 100, kScreenW, 60 }, 48, Color{ 255, 90, 90, 255 });
-    DrawCenteredText("Containment Unit Dispatched", Rectangle{ 0, kScreenH / 2 - 45, kScreenW, 30 }, 20, Color{ 220, 150, 150, 255 });
+    DrawCenteredText("PLACEHOLDER", Rectangle{ 0, kScreenH / 2 - 45, kScreenW, 30 }, 20, Color{ 220, 150, 150, 255 });
     DrawCenteredText(TextFormat("Final score: %d", score), Rectangle{ 0, kScreenH / 2 - 5, kScreenW, 40 }, 26, RAYWHITE);
     DrawCenteredText("Press ENTER to return to the menu", Rectangle{ 0, kScreenH / 2 + 40, kScreenW, 40 }, 22, YELLOW);
 }
