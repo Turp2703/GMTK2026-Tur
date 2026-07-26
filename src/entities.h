@@ -230,7 +230,8 @@ public:
                     feetY = pos.y + size.y;
                     for (auto& e : elevators) {
                         if (e.active) continue;
-                        if (feetY > e.rect.y && feetY < e.rect.y + e.rect.height) {
+                        bool xOverlap = (pos.x + size.x > e.rect.x && pos.x < e.rect.x + e.rect.width);
+                        if (xOverlap && feetY > e.rect.y && feetY < e.rect.y + e.rect.height) {
                             bool fromAbove = (diff > 0 && feetY < e.rect.y + 30);
                             bool fromBelow = (diff < 0 && feetY > e.rect.y + e.rect.height - 30);
                             if (fromAbove || fromBelow) {
