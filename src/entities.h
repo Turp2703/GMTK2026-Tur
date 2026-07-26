@@ -199,6 +199,20 @@ public:
 
         if (climbing && fabs(dy) > 6) {
             pos.y += (dy > 0 ? 1 : -1) * climbSpeed * dt;
+            float feetY = pos.y + size.y;
+            for (auto& e : elevators) {
+                if (e.active) continue;
+                if (feetY > e.rect.y && feetY < e.rect.y + e.rect.height) {
+                    climbing = false;
+                    int snapFloor = (dy > 0) ? e.floorHigh : e.floorLow;
+                    for (auto& p : platforms) {
+                        if (p.floor == snapFloor) { pos.y = p.rect.y - size.y; break; }
+                    }
+                    vy = 0;
+                    grounded = true;
+                    break;
+                }
+            }
         } else if (!climbing) {
             static const float gravity = 900.0f;
             vy += gravity * dt;
@@ -210,6 +224,22 @@ public:
                         pos.y = p.rect.y - size.y;
                         vy = 0;
                         grounded = true;
+                    }
+                }
+            }
+            if (!grounded) {
+                for (auto& e : elevators) {
+                    if (e.active) continue;
+                    if (CheckCollisionRecs(Bounds(), e.rect)) {
+                        for (auto& p : platforms) {
+                            if (p.floor == e.floorHigh) {
+                                pos.y = p.rect.y - size.y;
+                                vy = 0;
+                                grounded = true;
+                                break;
+                            }
+                        }
+                        break;
                     }
                 }
             }
