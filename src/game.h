@@ -59,6 +59,8 @@ private:
     Texture2D ladderBot{};
     SpriteAnimation sabotageAnim;
     Texture2D screenTex{};
+    SpriteAnimation doorParticleAnim{};
+    bool doorParticleActive = false;
     Texture2D overlayTex[3]{};
     int overlayStage = 0;
     float overlayBlend = 0.0f;
@@ -71,6 +73,20 @@ private:
     Texture2D noiseTex[kNoiseFrames]{};
     int noiseFrame = 0;
     float noiseTimer = 0.0f;
+
+    struct Particle {
+        Vector2 pos;
+        Vector2 vel;
+        float lifetime;
+        float age = 0.0f;
+        int frame = 0;
+        float frameTimer = 0.0f;
+        bool flipX = false;
+    };
+    static constexpr int kMaxParticles = 2;
+    std::vector<Particle> particles;
+    float particleSpawnTimer = 0.0f;
+    Texture2D runParticleTex{};
 
     Texture2D floorTop{};
     Texture2D floorTopLeft{};

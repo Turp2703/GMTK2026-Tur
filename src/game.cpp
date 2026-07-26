@@ -45,6 +45,8 @@ Game::Game() {
         noiseTex[i] = LoadTextureFromImage(img);
         UnloadImage(img);
     }
+    runParticleTex = LoadTexture("assets/player_run_particles.png");
+    doorParticleAnim = loadAnim("assets/side_door_particles.png", 6, 0.1f, false);
 }
 
 Game::~Game() {
@@ -75,6 +77,8 @@ Game::~Game() {
     for (int i = 0; i < kNoiseFrames; i++) {
         if (noiseTex[i].id != 0) UnloadTexture(noiseTex[i]);
     }
+    if (runParticleTex.id != 0) UnloadTexture(runParticleTex);
+    if (doorParticleAnim.texture.id != 0) UnloadTexture(doorParticleAnim.texture);
 }
 
 // =============================================================================
@@ -130,6 +134,9 @@ void Game::StartRoom(int roomNumber, const PuzzleTypeInfo& type) {
     overlayStage = 0;
     overlayBlend = 0.0f;
     exitIconTimer = 0.0f;
+    particles.clear();
+    particleSpawnTimer = 0.0f;
+    doorParticleActive = false;
 
     state = GameState::PLAYING;
 }
@@ -217,12 +224,50 @@ void Game::UpdatePlaying(float dt) {
     if (player.grounded) playerAnims[Player::ANIM_FALL].Reset();
     for (auto& a : playerAnims) a.Update(dt);
     sabotageAnim.Update(dt);
+    if (doorParticleActive) {
+        doorParticleAnim.Update(dt);
+        if (doorParticleAnim.finished) doorParticleActive = false;
+    }
 
     noiseTimer += dt;
     if (noiseTimer >= 0.1f) {
         noiseTimer -= 0.1f;
         noiseFrame = (noiseFrame + 1) % kNoiseFrames;
     }
+
+    // Run particles
+    if (player.grounded && player.wasMoving && !player.climbing) {
+        particleSpawnTimer += dt;
+        if (particleSpawnTimer >= 0.24f && (int)particles.size() < kMaxParticles) {
+            particleSpawnTimer = 0.0f;
+            Particle p;
+            float behindX = player.facingRight ? -8 : 8;
+            p.pos = { player.pos.x + player.size.x / 2 + behindX, player.pos.y + player.size.y - 24 };
+            p.vel = { player.facingRight ? RandFloat(-40, -15) : RandFloat(15, 40), RandFloat(-50, -25) };
+            p.lifetime = 0.35f;
+            p.age = 0.0f;
+            p.frame = 0;
+            p.frameTimer = 0.0f;
+            p.flipX = !player.facingRight;
+            particles.push_back(p);
+        }
+    } else {
+        particleSpawnTimer = 0.12f;
+    }
+    float frameDur = runParticleTex.width > 0 ? 0.4f / 6 : 0.1f;
+    for (auto& p : particles) {
+        p.age += dt;
+        p.pos.x += p.vel.x * dt;
+        p.pos.y += p.vel.y * dt;
+        p.frameTimer += dt;
+        if (p.frameTimer >= frameDur) {
+            p.frameTimer -= frameDur;
+            if (p.frame < 5) p.frame++;
+        }
+    }
+    particles.erase(
+        std::remove_if(particles.begin(), particles.end(), [](const Particle& p) { return p.age >= p.lifetime; }),
+        particles.end());
 
     // Entrance door: close during spawn countdown
     if (entranceDoorClosing && entranceDoorFrame > 0) {
@@ -238,6 +283,8 @@ void Game::UpdatePlaying(float dt) {
     if (solvedCount >= room.requiredSolves && !exitDoorOpening) {
         exitDoorOpening = true;
         doorTimer = 0.0f;
+        doorParticleActive = true;
+        doorParticleAnim.Reset();
     }
     if (exitDoorOpening && exitDoorFrame < sideDoorAnim.frameCount - 1) {
         doorTimer += dt;
@@ -607,6 +654,16 @@ void Game::DrawPlaying() {
         DrawTexturePro(sideDoorAnim.texture, exitSrc,
             { room.exitDoor.rect.x, room.exitDoor.rect.y - gapAbove, room.exitDoor.rect.width, room.exitDoor.rect.height + gapAbove },
             Vector2{0,0}, 0.0f, WHITE);
+
+        if (doorParticleActive && doorParticleAnim.texture.id != 0) {
+            float pw = (float)doorParticleAnim.texture.width / doorParticleAnim.frameCount;
+            float ph = (float)doorParticleAnim.texture.height;
+            Rectangle psrc = doorParticleAnim.SourceRect(false);
+            DrawTexturePro(doorParticleAnim.texture, psrc,
+                { room.exitDoor.rect.x - pw - 2,
+                  room.exitDoor.rect.y + room.exitDoor.rect.height / 2 - ph / 2, pw, ph },
+                Vector2{0,0}, 0.0f, WHITE);
+        }
     } else {
         DrawRectangleRec(room.entranceDoor.rect, Color{ 60, 100, 60, 255 });
         DrawCenteredText("A", room.entranceDoor.rect, 20, RAYWHITE);
@@ -714,6 +771,17 @@ void Game::DrawPlaying() {
 
     if (enemy.active) enemy.Render(enemyAnims, enemyFloor != playerFloor, floorAlpha(enemyFloor));
     player.Render(playerAnims);
+
+    if (runParticleTex.id != 0) {
+        float fw = (float)runParticleTex.width / 6, fh = (float)runParticleTex.height;
+        for (auto& p : particles) {
+            float fade = 1.0f - p.age / p.lifetime;
+            unsigned char alpha = (unsigned char)(fade * 255);
+            DrawTexturePro(runParticleTex, { p.frame * fw, 0, p.flipX ? -fw : fw, fh },
+                { p.pos.x - fw / 2, p.pos.y - fh / 2, fw, fh },
+                {0,0}, 0.0f, Color{ 255, 255, 255, alpha });
+        }
+    }
 
     DrawHUD();
 
