@@ -38,6 +38,13 @@ Game::Game() {
     overlayTex[2] = LoadTexture("assets/overlay_3.png");
     iconEnemy = LoadTexture("assets/icon_enemy.png");
     iconExit = LoadTexture("assets/icon_exit.png");
+
+    int nw = (int)screenTex.width, nh = (int)screenTex.height;
+    for (int i = 0; i < kNoiseFrames; i++) {
+        Image img = GenImageWhiteNoise(nw, nh, 0.45f);
+        noiseTex[i] = LoadTextureFromImage(img);
+        UnloadImage(img);
+    }
 }
 
 Game::~Game() {
@@ -65,6 +72,9 @@ Game::~Game() {
     }
     if (iconEnemy.id != 0) UnloadTexture(iconEnemy);
     if (iconExit.id != 0) UnloadTexture(iconExit);
+    for (int i = 0; i < kNoiseFrames; i++) {
+        if (noiseTex[i].id != 0) UnloadTexture(noiseTex[i]);
+    }
 }
 
 // =============================================================================
@@ -207,6 +217,12 @@ void Game::UpdatePlaying(float dt) {
     if (player.grounded) playerAnims[Player::ANIM_FALL].Reset();
     for (auto& a : playerAnims) a.Update(dt);
     sabotageAnim.Update(dt);
+
+    noiseTimer += dt;
+    if (noiseTimer >= 0.1f) {
+        noiseTimer -= 0.1f;
+        noiseFrame = (noiseFrame + 1) % kNoiseFrames;
+    }
 
     // Entrance door: close during spawn countdown
     if (entranceDoorClosing && entranceDoorFrame > 0) {
@@ -622,6 +638,11 @@ void Game::DrawPlaying() {
         float dx = s.rect.x + s.rect.width / 2 - sw / 2;
         float dy = s.rect.y + s.rect.height / 2 - sh / 2;
         DrawTexturePro(screenTex, { 0, 0, sw, sh }, { dx, dy, sw, sh }, {0,0}, 0.0f, tint);
+        if (s.state != SlotState::SOLVED && noiseTex[noiseFrame].id != 0) {
+            Rectangle noiseSrc{ 4, 11, 126, 62 };
+            Rectangle noiseDst{ dx + 4, dy + 11, 126, 62 };
+            DrawTexturePro(noiseTex[noiseFrame], noiseSrc, noiseDst, {0,0}, 0.0f, Color{ 255, 255, 255, (unsigned char)(a / 8) });
+        }
         float inset = 10.0f;
         float vShift = -8.0f;
 

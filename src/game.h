@@ -66,6 +66,11 @@ private:
     Texture2D iconExit{};
     float exitIconTimer = 0.0f;
 
+    static constexpr int kNoiseFrames = 4;
+    Texture2D noiseTex[kNoiseFrames]{};
+    int noiseFrame = 0;
+    float noiseTimer = 0.0f;
+
     Texture2D floorTop{};
     Texture2D floorTopLeft{};
     Texture2D floorTopRight{};
