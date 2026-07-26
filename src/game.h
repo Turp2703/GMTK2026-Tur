@@ -118,4 +118,7 @@ private:
 
     int FindNearbySlot(int playerFloor) const;
     void AnswerSlot(int slotIndex, int chosenChoice);
+
+    float screenTimer = 0.0f;
+    void DrawGradientBg(Color top, Color bottom);
 };

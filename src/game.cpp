@@ -156,6 +156,7 @@ void Game::Update(float dt) {
 }
 
 void Game::UpdateMenu() {
+    screenTimer += GetFrameTime();
     if (IsKeyPressed(KEY_ENTER)) {
         score = 0;
         GoToTypeSelect(1);
@@ -311,7 +312,7 @@ void Game::UpdatePlaying(float dt) {
             elev.active = false;
             elev.used = true;
             elev.reactivateTimer = 5.0f;
-            message = "Elevator sabotaged!";
+            message = "Ladder sabotaged!";
             messageTimer = 1.2f;
         }
     }
@@ -405,6 +406,7 @@ void Game::UpdatePlaying(float dt) {
         enemy.Update(dt, player, room.platforms, room.elevators, kScreenH);
         enemy.pos.x = Clamp(enemy.pos.x, 16.0f, kScreenW - enemy.size.x - 16.0f);
         if (enemy.CatchesPlayer(player)) {
+            screenTimer = 0.0f;
             state = GameState::GAME_OVER;
             return;
         }
@@ -412,6 +414,7 @@ void Game::UpdatePlaying(float dt) {
 
     if (solvedCount >= room.requiredSolves && CheckCollisionRecs(player.Bounds(), room.exitDoor.rect)) {
         if (currentRoom >= kMaxRoom) {
+            screenTimer = 0.0f;
             state = GameState::WIN;
         } else {
             state = GameState::ROOM_COMPLETE;
@@ -429,17 +432,21 @@ void Game::UpdateRoomComplete(float dt) {
 }
 
 void Game::UpdateGameOver() {
+    screenTimer += GetFrameTime();
     if (IsKeyPressed(KEY_ENTER)) {
         currentRoom = 1;
         score = 0;
+        screenTimer = 0.0f;
         state = GameState::MENU;
     }
 }
 
 void Game::UpdateWin() {
+    screenTimer += GetFrameTime();
     if (IsKeyPressed(KEY_ENTER)) {
         currentRoom = 1;
         score = 0;
+        screenTimer = 0.0f;
         state = GameState::MENU;
     }
 }
@@ -459,12 +466,48 @@ void Game::Draw() {
     }
 }
 
+void Game::DrawGradientBg(Color top, Color bottom) {
+    for (int y = 0; y < (int)kScreenH; y++) {
+        float t = (float)y / kScreenH;
+        Color c{
+            (unsigned char)(top.r + (bottom.r - top.r) * t),
+            (unsigned char)(top.g + (bottom.g - top.g) * t),
+            (unsigned char)(top.b + (bottom.b - top.b) * t),
+            255
+        };
+        DrawRectangle(0, y, (int)kScreenW, 1, c);
+    }
+    float scanY = fmodf(screenTimer * 80.0f, kScreenH + 40) - 20;
+    DrawRectangle(0, (int)scanY, (int)kScreenW, 2, Color{ 255, 255, 255, 15 });
+}
+
 void Game::DrawMenu() {
-    DrawCenteredText("AI-DOOMER", Rectangle{ 0, 180, kScreenW, 80 }, 60, RAYWHITE);
-    DrawCenteredText("You have a few minutes to prove you are better than AI.", Rectangle{ 0, 270, kScreenW, 30 }, 22, GRAY);
-    DrawCenteredText("Or else... they will get you.", Rectangle{ 0, 300, kScreenW, 30 }, 22, Color{ 220, 80, 80, 255 });
-    DrawCenteredText("AD move | W/S use elevator | 1/2/3 answer | F to sabotage an elevator", Rectangle{ 0, 360, kScreenW, 30 }, 18, GRAY);
-    DrawCenteredText("Press ENTER to start", Rectangle{ 0, 460, kScreenW, 40 }, 26, YELLOW);
+    DrawGradientBg(Color{ 8, 6, 14 }, Color{ 18, 14, 30 });
+
+    float fadeIn = std::min(screenTimer / 1.0f, 1.0f);
+    float pulse = 0.85f + 0.15f * sinf(screenTimer * 2.5f);
+    float titleY = 140 + (1.0f - fadeIn) * 30;
+
+    DrawCenteredText("AI-DOOMER", Rectangle{ 0, titleY, kScreenW, 80 }, 64,
+        Color{ (unsigned char)(255 * pulse), (unsigned char)(220 * pulse), (unsigned char)(80 * pulse), (unsigned char)(255 * fadeIn) });
+
+    float subFade = std::min(std::max((screenTimer - 0.4f) / 0.8f, 0.0f), 1.0f);
+    DrawCenteredText("You have a few minutes to prove you are better than AI.", Rectangle{ 0, 260, kScreenW, 30 }, 22,
+        Color{ 160, 165, 180, (unsigned char)(255 * subFade) });
+
+    float warnFade = std::min(std::max((screenTimer - 0.8f) / 0.8f, 0.0f), 1.0f);
+    float warnPulse = 0.8f + 0.2f * sinf(screenTimer * 3.0f);
+    DrawCenteredText("Or else... they will get you.", Rectangle{ 0, 295, kScreenW, 30 }, 22,
+        Color{ (unsigned char)(220 * warnPulse), 70, 70, (unsigned char)(255 * warnFade) });
+
+    float ctrlFade = std::min(std::max((screenTimer - 1.2f) / 0.6f, 0.0f), 1.0f);
+    DrawCenteredText("AD move  |  W/S climb ladders  |  1/2/3 answer  |  F sabotage", Rectangle{ 0, 370, kScreenW, 30 }, 18,
+        Color{ 110, 115, 130, (unsigned char)(200 * ctrlFade) });
+
+    float startFade = std::min(std::max((screenTimer - 1.6f) / 0.6f, 0.0f), 1.0f);
+    float startPulse = 0.6f + 0.4f * sinf(screenTimer * 3.5f);
+    DrawCenteredText("Press ENTER to start", Rectangle{ 0, 470, kScreenW, 40 }, 26,
+        Color{ (unsigned char)(255 * startPulse), (unsigned char)(200 * startPulse), 50, (unsigned char)(255 * startFade) });
 }
 
 void Game::DrawTypeSelect() {
@@ -832,16 +875,45 @@ void Game::DrawRoomComplete() {
 }
 
 void Game::DrawGameOver() {
-    DrawRectangle(0, 0, (int)kScreenW, (int)kScreenH, Color{ 0, 0, 0, 180 });
-    DrawCenteredText("EVALUATION FAILED", Rectangle{ 0, kScreenH / 2 - 100, kScreenW, 60 }, 48, Color{ 255, 90, 90, 255 });
-    DrawCenteredText("PLACEHOLDER", Rectangle{ 0, kScreenH / 2 - 45, kScreenW, 30 }, 20, Color{ 220, 150, 150, 255 });
-    DrawCenteredText(TextFormat("Final score: %d", score), Rectangle{ 0, kScreenH / 2 - 5, kScreenW, 40 }, 26, RAYWHITE);
-    DrawCenteredText("Press ENTER to return to the menu", Rectangle{ 0, kScreenH / 2 + 40, kScreenW, 40 }, 22, YELLOW);
+    DrawGradientBg(Color{ 20, 6, 6 }, Color{ 40, 8, 10 });
+    float fadeIn = std::min(screenTimer / 0.8f, 1.0f);
+    float pulse = 0.8f + 0.2f * sinf(screenTimer * 3.0f);
+
+    DrawCenteredText("EVALUATION FAILED", Rectangle{ 0, (int)(kScreenH / 2 - 120), kScreenW, 60 }, 52,
+        Color{ (unsigned char)(255 * pulse), (unsigned char)(70 * pulse), (unsigned char)(70 * pulse), (unsigned char)(255 * fadeIn) });
+
+    float subFade = std::min(std::max((screenTimer - 0.3f) / 0.6f, 0.0f), 1.0f);
+    DrawCenteredText("You didn't prove anything.", Rectangle{ 0, (int)(kScreenH / 2 - 55), kScreenW, 30 }, 20,
+        Color{ 200, 130, 130, (unsigned char)(255 * subFade) });
+
+    float scoreFade = std::min(std::max((screenTimer - 0.6f) / 0.5f, 0.0f), 1.0f);
+    DrawCenteredText(TextFormat("Final score: %d", score), Rectangle{ 0, (int)(kScreenH / 2 + 5), kScreenW, 40 }, 30,
+        Color{ 255, 255, 255, (unsigned char)(255 * scoreFade) });
+
+    float btnFade = std::min(std::max((screenTimer - 1.2f) / 0.5f, 0.0f), 1.0f);
+    float btnPulse = 0.6f + 0.4f * sinf(screenTimer * 3.0f);
+    DrawCenteredText("Press ENTER to return to the menu", Rectangle{ 0, (int)(kScreenH / 2 + 60), kScreenW, 40 }, 22,
+        Color{ (unsigned char)(255 * btnPulse), (unsigned char)(200 * btnPulse), 50, (unsigned char)(255 * btnFade) });
 }
 
 void Game::DrawWin() {
-    DrawCenteredText("HUMANITY: NOT OBSOLETE", Rectangle{ 0, kScreenH / 2 - 110, kScreenW, 60 }, 46, Color{ 255, 215, 90, 255 });
-    DrawCenteredText("You proved you are better than AI.", Rectangle{ 0, kScreenH / 2 - 50, kScreenW, 30 }, 22, RAYWHITE);
-    DrawCenteredText(TextFormat("Final score: %d", score), Rectangle{ 0, kScreenH / 2 - 10, kScreenW, 40 }, 28, RAYWHITE);
-    DrawCenteredText("Press ENTER to return to the menu", Rectangle{ 0, kScreenH / 2 + 40, kScreenW, 40 }, 22, YELLOW);
+    DrawGradientBg(Color{ 10, 14, 8 }, Color{ 16, 28, 12 });
+    float fadeIn = std::min(screenTimer / 0.8f, 1.0f);
+    float pulse = 0.85f + 0.15f * sinf(screenTimer * 2.0f);
+
+    DrawCenteredText("HUMANITY: NOT OBSOLETE", Rectangle{ 0, (int)(kScreenH / 2 - 130), kScreenW, 60 }, 50,
+        Color{ (unsigned char)(255 * pulse), (unsigned char)(215 * pulse), (unsigned char)(70 * pulse), (unsigned char)(255 * fadeIn) });
+
+    float subFade = std::min(std::max((screenTimer - 0.4f) / 0.6f, 0.0f), 1.0f);
+    DrawCenteredText("You proved you are better than AI.", Rectangle{ 0, (int)(kScreenH / 2 - 60), kScreenW, 30 }, 22,
+        Color{ 200, 220, 200, (unsigned char)(255 * subFade) });
+
+    float scoreFade = std::min(std::max((screenTimer - 0.8f) / 0.5f, 0.0f), 1.0f);
+    DrawCenteredText(TextFormat("Final score: %d", score), Rectangle{ 0, (int)(kScreenH / 2 + 10), kScreenW, 40 }, 30,
+        Color{ 255, 255, 255, (unsigned char)(255 * scoreFade) });
+
+    float btnFade = std::min(std::max((screenTimer - 1.4f) / 0.5f, 0.0f), 1.0f);
+    float btnPulse = 0.6f + 0.4f * sinf(screenTimer * 3.0f);
+    DrawCenteredText("Press ENTER to return to the menu", Rectangle{ 0, (int)(kScreenH / 2 + 70), kScreenW, 40 }, 22,
+        Color{ (unsigned char)(255 * btnPulse), (unsigned char)(200 * btnPulse), 50, (unsigned char)(255 * btnFade) });
 }
