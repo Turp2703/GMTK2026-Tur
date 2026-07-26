@@ -1,52 +1,97 @@
 #include "game.h"
 
+static SpriteAnimation LoadAnim(const char* path, int frames, float frameTime, bool loop) {
+    SpriteAnimation a;
+    a.texture = LoadTexture(path);
+    a.frameCount = frames;
+    a.frameTime = frameTime;
+    a.loop = loop;
+    return a;
+}
+
 Game::Game() {
-    auto loadAnim = [](const char* path, int frames, float frameTime, bool loop) -> SpriteAnimation {
-        SpriteAnimation a;
-        a.texture = LoadTexture(path);
-        a.frameCount = frames;
-        a.frameTime = frameTime;
-        a.loop = loop;
-        return a;
+    state = GameState::LOADING;
+    loadingStep = 0;
+    loadingProgress = 0.0f;
+
+    loadingSteps = {
+        [this]() {
+            playerAnims[Player::ANIM_SPAWN] = LoadAnim("assets/player_spawn.png", 6, 0.25f, false);
+            playerAnims[Player::ANIM_IDLE]  = LoadAnim("assets/player_idle.png",  4, 0.15f, true);
+            loadingLabel = "Loading player sprites...";
+        },
+        [this]() {
+            playerAnims[Player::ANIM_RUN]   = LoadAnim("assets/player_run.png",   6, 0.08f, true);
+            playerAnims[Player::ANIM_LADDER]= LoadAnim("assets/player_ladder.png", 6, 0.1f,  true);
+            playerAnims[Player::ANIM_FALL]  = LoadAnim("assets/player_fall.png",  4, 0.2f, false);
+            loadingLabel = "Loading player animations...";
+        },
+        [this]() {
+            enemyAnims[Enemy::ANIM_SPAWN]  = LoadAnim("assets/enemy_spawn.png",  6, 0.1f, false);
+            enemyAnims[Enemy::ANIM_RUN]    = LoadAnim("assets/enemy_run.png",    6, 0.1f, true);
+            enemyAnims[Enemy::ANIM_LADDER] = LoadAnim("assets/enemy_ladder.png", 6, 0.1f, true);
+            enemyAnims[Enemy::ANIM_HIDDEN] = LoadAnim("assets/enemy_hidden.png", 6, 0.1f, true);
+            loadingLabel = "Loading enemy sprites...";
+        },
+        [this]() {
+            sideDoorAnim = LoadAnim("assets/side_door.png", 5, 0.2f, false);
+            enemyDoorAnim = LoadAnim("assets/enemy_door.png", 10, 0.12f, false);
+            sabotageAnim = LoadAnim("assets/sabotage.png", 4, 0.15f, true);
+            loadingLabel = "Loading door & sabotage...";
+        },
+        [this]() {
+            ladderTop = LoadTexture("assets/ladder_top.png");
+            ladderMid = LoadTexture("assets/ladder_middle.png");
+            ladderBot = LoadTexture("assets/ladder_bottom.png");
+            loadingLabel = "Loading ladder parts...";
+        },
+        [this]() {
+            floorTop = LoadTexture("assets/floor_top.png");
+            floorTopLeft = LoadTexture("assets/floor_top_left.png");
+            floorTopRight = LoadTexture("assets/floor_top_right.png");
+            loadingLabel = "Loading floor tiles...";
+        },
+        [this]() {
+            floorLeft = LoadTexture("assets/floor_left.png");
+            floorRight = LoadTexture("assets/floor_right.png");
+            floorLowest = LoadTexture("assets/floor_lowest.png");
+            loadingLabel = "Loading room tiles...";
+        },
+        [this]() {
+            screenTex = LoadTexture("assets/screen.png");
+            loadingLabel = "Loading screen texture...";
+        },
+        [this]() {
+            overlayTex[0] = LoadTexture("assets/overlay_1.png");
+            overlayTex[1] = LoadTexture("assets/overlay_2.png");
+            overlayTex[2] = LoadTexture("assets/overlay_3.png");
+            loadingLabel = "Loading overlays...";
+        },
+        [this]() {
+            iconEnemy = LoadTexture("assets/icon_enemy.png");
+            iconExit = LoadTexture("assets/icon_exit.png");
+            loadingLabel = "Loading icons...";
+        },
+        [this]() {
+            int nw = (int)screenTex.width, nh = (int)screenTex.height;
+            for (int i = 0; i < kNoiseFrames; i++) {
+                Image img = GenImageWhiteNoise(nw, nh, 0.45f);
+                noiseTex[i] = LoadTextureFromImage(img);
+                UnloadImage(img);
+            }
+            loadingLabel = "Generating noise...";
+        },
+        [this]() {
+            runParticleTex = LoadTexture("assets/player_run_particles.png");
+            doorParticleAnim = LoadAnim("assets/side_door_particles.png", 6, 0.1f, false);
+            loadingLabel = "Loading particles...";
+        },
+        [this]() {
+            loadingLabel = "Ready!";
+        }
     };
-    playerAnims[Player::ANIM_SPAWN] = loadAnim("assets/player_spawn.png", 6, 0.25f, false);
-    playerAnims[Player::ANIM_IDLE]  = loadAnim("assets/player_idle.png",  4, 0.15f, true);
-    playerAnims[Player::ANIM_RUN]   = loadAnim("assets/player_run.png",   6, 0.08f, true);
-    playerAnims[Player::ANIM_LADDER]= loadAnim("assets/player_ladder.png", 6, 0.1f,  true);
-    playerAnims[Player::ANIM_FALL]  = loadAnim("assets/player_fall.png",  4, 0.2f, false);
 
-    enemyAnims[Enemy::ANIM_SPAWN]  = loadAnim("assets/enemy_spawn.png",  6, 0.1f, false);
-    enemyAnims[Enemy::ANIM_RUN]    = loadAnim("assets/enemy_run.png",    6, 0.1f, true);
-    enemyAnims[Enemy::ANIM_LADDER] = loadAnim("assets/enemy_ladder.png", 6, 0.1f, true);
-    enemyAnims[Enemy::ANIM_HIDDEN] = loadAnim("assets/enemy_hidden.png", 6, 0.1f, true);
-
-    sideDoorAnim = loadAnim("assets/side_door.png", 5, 0.2f, false);
-    enemyDoorAnim = loadAnim("assets/enemy_door.png", 10, 0.12f, false);
-    ladderTop = LoadTexture("assets/ladder_top.png");
-    ladderMid = LoadTexture("assets/ladder_middle.png");
-    ladderBot = LoadTexture("assets/ladder_bottom.png");
-    sabotageAnim = loadAnim("assets/sabotage.png", 4, 0.15f, true);
-    floorTop = LoadTexture("assets/floor_top.png");
-    floorTopLeft = LoadTexture("assets/floor_top_left.png");
-    floorTopRight = LoadTexture("assets/floor_top_right.png");
-    floorLeft = LoadTexture("assets/floor_left.png");
-    floorRight = LoadTexture("assets/floor_right.png");
-    floorLowest = LoadTexture("assets/floor_lowest.png");
-    screenTex = LoadTexture("assets/screen.png");
-    overlayTex[0] = LoadTexture("assets/overlay_1.png");
-    overlayTex[1] = LoadTexture("assets/overlay_2.png");
-    overlayTex[2] = LoadTexture("assets/overlay_3.png");
-    iconEnemy = LoadTexture("assets/icon_enemy.png");
-    iconExit = LoadTexture("assets/icon_exit.png");
-
-    int nw = (int)screenTex.width, nh = (int)screenTex.height;
-    for (int i = 0; i < kNoiseFrames; i++) {
-        Image img = GenImageWhiteNoise(nw, nh, 0.45f);
-        noiseTex[i] = LoadTextureFromImage(img);
-        UnloadImage(img);
-    }
-    runParticleTex = LoadTexture("assets/player_run_particles.png");
-    doorParticleAnim = loadAnim("assets/side_door_particles.png", 6, 0.1f, false);
+    loadingLabel = "Initializing...";
 }
 
 Game::~Game() {
@@ -177,12 +222,26 @@ void Game::Update(float dt) {
     }
 
     switch (state) {
+        case GameState::LOADING: UpdateLoading(); break;
         case GameState::MENU: UpdateMenu(); break;
         case GameState::TYPE_SELECT: UpdateTypeSelect(); break;
         case GameState::PLAYING: UpdatePlaying(dt); break;
         case GameState::ROOM_COMPLETE: UpdateRoomComplete(dt); break;
         case GameState::GAME_OVER: UpdateGameOver(); break;
         case GameState::WIN: UpdateWin(); break;
+    }
+}
+
+void Game::UpdateLoading() {
+    if (loadingStep < (int)loadingSteps.size()) {
+        loadingSteps[loadingStep]();
+        loadingStep++;
+        loadingProgress = (float)loadingStep / (float)loadingSteps.size();
+    }
+    loadAnimFrame += GetFrameTime();
+    if (loadingStep >= (int)loadingSteps.size()) {
+        state = GameState::MENU;
+        screenTimer = 0.0f;
     }
 }
 
@@ -494,6 +553,7 @@ void Game::UpdateWin() {
 void Game::Draw() {
     ClearBackground(Color{ 14, 12, 18, 255 });
     switch (state) {
+        case GameState::LOADING: DrawLoading(); break;
         case GameState::MENU: DrawMenu(); break;
         case GameState::TYPE_SELECT: DrawTypeSelect(); break;
         case GameState::PLAYING: DrawPlaying(); break;
@@ -519,6 +579,32 @@ void Game::DrawGradientBg(Color top, Color bottom) {
     }
     float scanY = fmodf(screenTimer * 80.0f, kScreenH + 40) - 20;
     DrawRectangle(0, (int)scanY, (int)kScreenW, 2, Color{ 255, 255, 255, 15 });
+}
+
+void Game::DrawLoading() {
+    DrawGradientBg(Color{ 10, 8, 18 }, Color{ 20, 16, 35 });
+
+    float titlePulse = 0.85f + 0.15f * sinf(loadAnimFrame * 3.0f);
+    DrawCenteredText("AI-DOOMER", Rectangle{ 0, kScreenH / 2 - 100, kScreenW, 60 }, 48,
+        Color{ 255, 255, 255, (unsigned char)(255 * titlePulse) });
+
+    float barW = 400, barH = 16;
+    float barX = kScreenW / 2 - barW / 2;
+    float barY = kScreenH / 2 + 10;
+    DrawRectangleRec(Rectangle{ barX, barY, barW, barH }, Color{ 30, 30, 42, 255 });
+    DrawRectangleRec(Rectangle{ barX, barY, barW * loadingProgress, barH }, Color{ 88, 189, 106, 255 });
+    DrawRectangleLinesEx(Rectangle{ barX, barY, barW, barH }, 2, Color{ 70, 75, 95, 255 });
+
+    int pct = (int)(loadingProgress * 100);
+    DrawCenteredText(TextFormat("%d%%", pct), Rectangle{ barX, barY + 24, barW, 24 }, 16, RAYWHITE);
+
+    DrawCenteredText(loadingLabel.c_str(), Rectangle{ 0, barY + 50, kScreenW, 24 }, 16,
+        Color{ 160, 165, 180, 255 });
+
+    int dots = (int)(loadAnimFrame * 4.0f) % 4;
+    std::string dotsStr(dots, '.');
+    DrawCenteredText(TextFormat("Loading%s", dotsStr.c_str()), Rectangle{ 0, barY + 74, kScreenW, 24 }, 14,
+        Color{ 120, 125, 140, 200 });
 }
 
 void Game::DrawMenu() {

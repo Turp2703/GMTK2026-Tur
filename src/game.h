@@ -3,6 +3,7 @@
 #include "level.h"
 
 enum class GameState {
+    LOADING,
     MENU,
     TYPE_SELECT,
     PLAYING,
@@ -19,7 +20,13 @@ public:
     void Draw();
 
 private:
-    GameState state = GameState::MENU;
+    GameState state = GameState::LOADING;
+
+    std::vector<std::function<void()>> loadingSteps;
+    int loadingStep = 0;
+    float loadingProgress = 0.0f;
+    float loadAnimFrame = 0.0f;
+    std::string loadingLabel;
 
     int currentRoom = 1;
     static constexpr int kMaxRoom = 5;
@@ -103,6 +110,7 @@ private:
     void GoToTypeSelect(int roomNumber);
     void StartRoom(int roomNumber, const PuzzleTypeInfo& type);
 
+    void UpdateLoading();
     void UpdateMenu();
     void UpdateTypeSelect();
     void UpdatePlaying(float dt);
@@ -110,6 +118,7 @@ private:
     void UpdateGameOver();
     void UpdateWin();
 
+    void DrawLoading();
     void DrawMenu();
     void DrawTypeSelect();
     void DrawPlaying();
