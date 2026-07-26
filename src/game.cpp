@@ -505,11 +505,14 @@ void Game::DrawPlaying() {
     }
 
     // Sabotage buttons
+    Rectangle pb = player.Bounds();
+    Rectangle sabotageZone{ pb.x - 20, pb.y - 20, pb.width + 40, pb.height + 40 };
     if (sabotageAnim.texture.id != 0) {
         float btnSpriteW = (float)sabotageAnim.texture.width / sabotageAnim.frameCount;
         float btnSpriteH = (float)sabotageAnim.texture.height;
         for (auto& btn : room.sabotageButtons) {
             auto& elev = room.elevators[btn.elevatorIndex];
+            bool accessible = (elev.floorLow == playerFloor) && !elev.used;
             unsigned char a = (elev.floorLow == playerFloor) ? 255 : 70;
             Color tint = elev.used ? Color{ 120, 120, 120, a } : WHITE;
             tint.a = a;
@@ -517,6 +520,13 @@ void Game::DrawPlaying() {
             DrawTexturePro(sabotageAnim.texture, src,
                 { btn.rect.x, btn.rect.y, btnSpriteW, btnSpriteH },
                 Vector2{0,0}, 0.0f, tint);
+            bool near = CheckCollisionRecs(sabotageZone, btn.rect) && accessible;
+            if (near) {
+                float keyW = 18, keyH = 18;
+                Rectangle keyBox{ btn.rect.x + btn.rect.width / 2 - keyW / 2, btn.rect.y - keyH - 5, keyW, keyH };
+                DrawRectangleRounded(keyBox, 0.4f, 4, Color{ 100, 120, 170, 180 });
+                DrawCenteredText("F", keyBox, 12, Color{ 200, 210, 235, 255 });
+            }
         }
     } else {
         for (auto& btn : room.sabotageButtons) {
@@ -525,6 +535,13 @@ void Game::DrawPlaying() {
             Color c = elev.used ? Color{ 80, 80, 80, a } : Color{ 200, 60, 60, a };
             DrawRectangleRec(btn.rect, c);
             DrawRectangleLinesEx(btn.rect, 1, Color{ 20, 20, 20, a });
+            bool near = CheckCollisionRecs(sabotageZone, btn.rect) && !elev.used && elev.floorLow == playerFloor;
+            if (near) {
+                float keyW = 18, keyH = 18;
+                Rectangle keyBox{ btn.rect.x + btn.rect.width / 2 - keyW / 2, btn.rect.y - keyH - 5, keyW, keyH };
+                DrawRectangleRounded(keyBox, 0.4f, 4, Color{ 100, 120, 170, 180 });
+                DrawCenteredText("F", keyBox, 12, Color{ 200, 210, 235, 255 });
+            }
         }
     }
 
