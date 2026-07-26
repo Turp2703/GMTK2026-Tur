@@ -62,6 +62,10 @@ private:
     int overlayStage = 0;
     float overlayBlend = 0.0f;
 
+    Texture2D iconEnemy{};
+    Texture2D iconExit{};
+    float exitIconTimer = 0.0f;
+
     Texture2D floorTop{};
     Texture2D floorTopLeft{};
     Texture2D floorTopRight{};

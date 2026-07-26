@@ -36,6 +36,8 @@ Game::Game() {
     overlayTex[0] = LoadTexture("assets/overlay_1.png");
     overlayTex[1] = LoadTexture("assets/overlay_2.png");
     overlayTex[2] = LoadTexture("assets/overlay_3.png");
+    iconEnemy = LoadTexture("assets/icon_enemy.png");
+    iconExit = LoadTexture("assets/icon_exit.png");
 }
 
 Game::~Game() {
@@ -61,6 +63,8 @@ Game::~Game() {
     for (int i = 0; i < 3; i++) {
         if (overlayTex[i].id != 0) UnloadTexture(overlayTex[i]);
     }
+    if (iconEnemy.id != 0) UnloadTexture(iconEnemy);
+    if (iconExit.id != 0) UnloadTexture(iconExit);
 }
 
 // =============================================================================
@@ -115,6 +119,7 @@ void Game::StartRoom(int roomNumber, const PuzzleTypeInfo& type) {
     messageTimer = 0.0f;
     overlayStage = 0;
     overlayBlend = 0.0f;
+    exitIconTimer = 0.0f;
 
     state = GameState::PLAYING;
 }
@@ -225,6 +230,7 @@ void Game::UpdatePlaying(float dt) {
             exitDoorFrame++;
         }
     }
+    if (exitDoorOpening) exitIconTimer += dt;
 
     if (startCountdown > 0.0f) return; // nothing else happens until "GO"
 
@@ -581,6 +587,25 @@ void Game::DrawPlaying() {
         DrawTexturePro(enemyDoorAnim.texture, src,
             { room.enemyDoorRect.x, room.enemyDoorRect.y, spriteW, spriteH },
             Vector2{0,0}, 0.0f, Color{ 255, 255, 255, doorA });
+        if (iconEnemy.id != 0) {
+            float iw = (float)iconEnemy.width, ih = (float)iconEnemy.height;
+            DrawTexture(iconEnemy,
+                (int)(room.enemyDoorRect.x + room.enemyDoorRect.width / 2 - iw / 2),
+                (int)(room.enemyDoorRect.y - ih - 4),
+                Color{ 255, 255, 255, doorA });
+        }
+    }
+
+    // Exit door icon - fades in then flashes when door opens
+    if (exitDoorOpening && iconExit.id != 0) {
+        float iw = (float)iconExit.width, ih = (float)iconExit.height;
+        float fadeIn = std::min(exitIconTimer / 0.8f, 1.0f);
+        float flash = (exitIconTimer > 0.8f) ? 0.5f + 0.5f * sinf(exitIconTimer * 6.0f) : 1.0f;
+        unsigned char a = (unsigned char)(fadeIn * flash * 255);
+        DrawTexture(iconExit,
+            (int)(room.exitDoor.rect.x - iw * 2),
+            (int)(room.exitDoor.rect.y - ih - 4),
+            Color{ 255, 255, 255, a });
     }
 
     // Puzzle slots
