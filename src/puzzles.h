@@ -1,5 +1,5 @@
 #pragma once
-#include "Puzzle.h"
+#include "puzzle.h"
 
 // =============================================================================
 // Small helpers shared across puzzle types

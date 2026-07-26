@@ -1,5 +1,5 @@
 #pragma once
-#include "Common.h"
+#include "common.h"
 
 // A puzzle is now single-screen: it shows one question and offers three
 // possible text answers (one correct, two decoys). The player presses

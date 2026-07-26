@@ -1,6 +1,6 @@
 #pragma once
-#include "Common.h"
-#include "Puzzle.h"
+#include "common.h"
+#include "puzzle.h"
 
 struct Platform {
     Rectangle rect;

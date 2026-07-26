@@ -611,7 +611,7 @@ void Game::DrawLoading() {
     DrawGradientBg(Color{ 10, 8, 18 }, Color{ 20, 16, 35 });
 
     float titlePulse = 0.85f + 0.15f * sinf(loadAnimFrame * 3.0f);
-    DrawCenteredText("AI-DOOMER", Rectangle{ 0, kScreenH / 2 - 100, kScreenW, 60 }, 48,
+    DrawCenteredText("NOT-OBSOLETE", Rectangle{ 0, kScreenH / 2 - 100, kScreenW, 60 }, 48,
         Color{ 255, 255, 255, (unsigned char)(255 * titlePulse) });
 
     float barW = 400, barH = 16;
@@ -640,7 +640,7 @@ void Game::DrawMenu() {
     float pulse = 0.85f + 0.15f * sinf(screenTimer * 2.5f);
     float titleY = 140 + (1.0f - fadeIn) * 30;
 
-    DrawCenteredText("AI-DOOMER", Rectangle{ 0, titleY, kScreenW, 80 }, 64,
+    DrawCenteredText("NOT-OBSOLETE", Rectangle{ 0, titleY, kScreenW, 80 }, 64,
         Color{ (unsigned char)(255 * pulse), (unsigned char)(220 * pulse), (unsigned char)(80 * pulse), (unsigned char)(255 * fadeIn) });
 
     float subFade = std::min(std::max((screenTimer - 0.4f) / 0.8f, 0.0f), 1.0f);

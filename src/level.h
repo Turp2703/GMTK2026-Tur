@@ -1,7 +1,7 @@
 #pragma once
-#include "Common.h"
-#include "Entities.h"
-#include "Puzzles.h"
+#include "common.h"
+#include "entities.h"
+#include "puzzles.h"
 
 constexpr float kScreenW = 1280.0f;
 constexpr float kScreenH = 720.0f;
