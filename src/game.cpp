@@ -610,15 +610,18 @@ void Game::DrawPlaying() {
         auto& s = room.puzzleSlots[nearbySlotIndex];
         if (s.state == SlotState::UNSOLVED) {
             auto choices = s.puzzle->GetChoices();
-            float btnW = 130, btnH = 34, gap = 8;
+            float btnW = 140, btnH = 36, gap = 10, keyH = 18, keyW = 18;
             float totalW = btnW * 3 + gap * 2;
             float x = s.rect.x + s.rect.width / 2 - totalW / 2;
-            float y = s.rect.y - 34 - btnH;
+            float y = std::max(s.rect.y - 34 - btnH - keyH - 4, 54.0f);
             for (int c = 0; c < 3; c++) {
                 Rectangle btn{ x + c * (btnW + gap), y, btnW, btnH };
-                DrawRectangleRec(btn, Color{ 50, 54, 70, 255 });
-                DrawRectangleLinesEx(btn, 2, Color{ 150, 170, 220, 255 });
-                DrawCenteredText(TextFormat("[%d] %s", c + 1, choices[c].c_str()), btn, 14, RAYWHITE);
+                DrawRectangleRounded(btn, 0.3f, 6, Color{ 35, 38, 52, 240 });
+                DrawRectangleRoundedLines(btn, 0.3f, 6, Color{ 100, 120, 170, 200 });
+                DrawCenteredText(choices[c], btn, 14, Color{ 220, 225, 240, 255 });
+                Rectangle keyBox{ btn.x + btn.width / 2 - keyW / 2, btn.y + btn.height + 5, keyW, keyH };
+                DrawRectangleRounded(keyBox, 0.4f, 4, Color{ 100, 120, 170, 180 });
+                DrawCenteredText(TextFormat("%d", c + 1), keyBox, 12, Color{ 200, 210, 235, 255 });
             }
         }
     }
