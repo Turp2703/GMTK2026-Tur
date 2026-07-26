@@ -33,6 +33,9 @@ Game::Game() {
     floorRight = LoadTexture("assets/floor_right.png");
     floorLowest = LoadTexture("assets/floor_lowest.png");
     screenTex = LoadTexture("assets/screen.png");
+    overlayTex[0] = LoadTexture("assets/overlay_1.png");
+    overlayTex[1] = LoadTexture("assets/overlay_2.png");
+    overlayTex[2] = LoadTexture("assets/overlay_3.png");
 }
 
 Game::~Game() {
@@ -55,6 +58,9 @@ Game::~Game() {
     if (floorRight.id != 0) UnloadTexture(floorRight);
     if (floorLowest.id != 0) UnloadTexture(floorLowest);
     if (screenTex.id != 0) UnloadTexture(screenTex);
+    for (int i = 0; i < 3; i++) {
+        if (overlayTex[i].id != 0) UnloadTexture(overlayTex[i]);
+    }
 }
 
 // =============================================================================
@@ -107,6 +113,8 @@ void Game::StartRoom(int roomNumber, const PuzzleTypeInfo& type) {
     nearbySlotIndex = -1;
     message.clear();
     messageTimer = 0.0f;
+    overlayStage = 0;
+    overlayBlend = 0.0f;
 
     state = GameState::PLAYING;
 }
@@ -258,6 +266,20 @@ void Game::UpdatePlaying(float dt) {
 
     if (!enemySpawned) {
         timeRemaining -= dt;
+
+        // Overlay transitions
+        if (overlayStage == 0 && timeRemaining <= 30.0f) {
+            overlayStage = 1;
+            overlayBlend = 0.0f;
+        }
+        if (overlayStage == 1 && timeRemaining <= 10.0f) {
+            overlayStage = 2;
+            overlayBlend = 0.0f;
+        }
+        if (overlayBlend < 1.0f && overlayStage > 0) {
+            overlayBlend = std::min(1.0f, overlayBlend + dt * 0.5f);
+        }
+
         float doorAnimDuration = enemyDoorAnim.frameCount * enemyDoorAnim.frameTime;
 
         // Start door animation when time is about to run out
@@ -613,6 +635,25 @@ void Game::DrawPlaying() {
 
     if (messageTimer > 0 && !message.empty() && state == GameState::PLAYING) {
         DrawCenteredText(message, Rectangle{ 0, 90, kScreenW, 30 }, 22, YELLOW);
+    }
+
+    // Overlay transitions
+    auto drawOverlay = [](const Texture2D& tex, float alpha) {
+        if (tex.id == 0 || alpha <= 0.0f) return;
+        Rectangle src{ 0, 0, (float)tex.width, (float)tex.height };
+        Rectangle dst{ 0, 0, kScreenW, kScreenH };
+        unsigned char a = (unsigned char)(alpha * 40);
+        DrawTexturePro(tex, src, dst, {0,0}, 0.0f, Color{ 255, 255, 255, a });
+    };
+
+    if (overlayStage == 0) {
+        drawOverlay(overlayTex[0], 1.0f);
+    } else if (overlayStage == 1) {
+        drawOverlay(overlayTex[0], 1.0f - overlayBlend);
+        drawOverlay(overlayTex[1], overlayBlend);
+    } else if (overlayStage == 2) {
+        drawOverlay(overlayTex[1], 1.0f - overlayBlend);
+        drawOverlay(overlayTex[2], overlayBlend);
     }
 }
 

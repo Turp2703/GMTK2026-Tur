@@ -58,6 +58,9 @@ private:
     Texture2D ladderBot{};
     SpriteAnimation sabotageAnim;
     Texture2D screenTex{};
+    Texture2D overlayTex[3]{};
+    int overlayStage = 0;
+    float overlayBlend = 0.0f;
 
     Texture2D floorTop{};
     Texture2D floorTopLeft{};
