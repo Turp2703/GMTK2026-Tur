@@ -231,14 +231,18 @@ public:
                     for (auto& e : elevators) {
                         if (e.active) continue;
                         if (feetY > e.rect.y && feetY < e.rect.y + e.rect.height) {
-                            climbing = false;
-                            int snapFloor = (diff > 0) ? e.floorHigh : e.floorLow;
-                            for (auto& p : platforms) {
-                                if (p.floor == snapFloor) { pos.y = p.rect.y - size.y; break; }
+                            bool fromAbove = (diff > 0 && feetY < e.rect.y + 30);
+                            bool fromBelow = (diff < 0 && feetY > e.rect.y + e.rect.height - 30);
+                            if (fromAbove || fromBelow) {
+                                climbing = false;
+                                int snapFloor = fromAbove ? e.floorHigh : e.floorLow;
+                                for (auto& p : platforms) {
+                                    if (p.floor == snapFloor) { pos.y = p.rect.y - size.y; break; }
+                                }
+                                vy = 0;
+                                grounded = true;
+                                break;
                             }
-                            vy = 0;
-                            grounded = true;
-                            break;
                         }
                     }
                 }
