@@ -497,7 +497,33 @@ void Game::UpdatePlaying(float dt) {
         if (enemy.spawning && enemyAnims[Enemy::ANIM_SPAWN].finished) {
             enemy.spawning = false;
         }
-        enemy.Update(dt, player, room.platforms, room.elevators, kScreenH, room.floorY[0]);
+        int playerFloor = room.FloorForY(player.pos.y + player.size.y);
+        int enemyFloor = enemy.active ? room.FloorForY(enemy.pos.y + enemy.size.y) : -1;
+        float enemyTargetX;
+        if (!enemy.active || playerFloor == enemyFloor) {
+            enemyTargetX = player.pos.x + player.size.x / 2;
+        } else {
+            float bestDist = 1e9f;
+            float bestX = 0;
+            for (auto& e : room.elevators) {
+                if (!e.active) continue;
+                bool ok = (playerFloor > enemyFloor && e.floorLow == enemyFloor) ||
+                          (playerFloor < enemyFloor && e.floorHigh == enemyFloor);
+                if (ok) {
+                    float ex = e.rect.x + e.rect.width / 2;
+                    float d = fabsf(ex - (enemy.pos.x + enemy.size.x / 2));
+                    if (d < bestDist) { bestDist = d; bestX = ex; }
+                }
+            }
+            if (bestDist < 1e9f) {
+                enemyTargetX = bestX;
+            } else {
+                float c2 = ColumnX(2), c4 = ColumnX(4);
+                float ecx = enemy.pos.x + enemy.size.x / 2;
+                enemyTargetX = (fabsf(c2 - ecx) < fabsf(c4 - ecx)) ? c2 : c4;
+            }
+        }
+        enemy.Update(dt, player, room.platforms, room.elevators, kScreenH, room.floorY[0], enemyTargetX, playerFloor);
         enemy.pos.x = Clamp(enemy.pos.x, 16.0f, kScreenW - enemy.size.x - 16.0f);
         if (enemy.CatchesPlayer(player)) {
             screenTimer = 0.0f;

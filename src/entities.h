@@ -179,72 +179,104 @@ public:
 
     void Spawn(Vector2 at) { pos = at; active = true; spawning = true; }
 
-    void Update(float dt, const Player& player, const std::vector<Platform>& platforms, const std::vector<Elevator>& elevators, float screenH, float minFeetY = 0) {
+    void Update(float dt, const Player& player, const std::vector<Platform>& platforms, const std::vector<Elevator>& elevators, float screenH, float minFeetY, float targetX, int playerFloor) {
         if (!active) return;
-
         if (spawning) return;
 
-        float dx = (player.pos.x + player.size.x / 2) - (pos.x + size.x / 2);
-        float dy = (player.pos.y + player.size.y / 2) - (pos.y + size.y / 2);
-
-        if (fabs(dx) > 4) { pos.x += (dx > 0 ? 1 : -1) * speed * dt; facingRight = dx > 0; }
-
-        Rectangle elevatorCheck{ pos.x, pos.y, size.x, size.y + 6 };
-        climbing = false;
-        for (auto& e : elevators) {
-            if (e.active && CheckCollisionRecs(elevatorCheck, e.rect)) { climbing = true; break; }
+        if (!climbing) {
+            float dx = targetX - (pos.x + size.x / 2);
+            if (fabs(dx) > 4) { pos.x += (dx > 0 ? 1 : -1) * speed * dt; facingRight = dx > 0; }
         }
 
-        grounded = false;
+        float feetY = pos.y + size.y;
 
-        if (climbing && fabs(dy) > 6) {
-            pos.y += (dy > 0 ? 1 : -1) * climbSpeed * dt;
-            if (pos.y + size.y > minFeetY) pos.y = minFeetY - size.y;
-            float feetY = pos.y + size.y;
-            for (auto& e : elevators) {
-                if (e.active) continue;
-                if (feetY > e.rect.y && feetY < e.rect.y + e.rect.height) {
-                    climbing = false;
-                    int snapFloor = (dy > 0) ? e.floorHigh : e.floorLow;
-                    for (auto& p : platforms) {
-                        if (p.floor == snapFloor) { pos.y = p.rect.y - size.y; break; }
-                    }
-                    vy = 0;
-                    grounded = true;
-                    break;
-                }
+        bool atTargetFloor = false;
+        for (auto& p : platforms) {
+            if (p.floor == playerFloor && feetY >= p.rect.y - 10 && feetY <= p.rect.y + 20) {
+                atTargetFloor = true;
+                break;
             }
-        } else if (!climbing) {
-            static const float gravity = 900.0f;
-            vy += gravity * dt;
-            pos.y += vy * dt;
+        }
+
+        if (atTargetFloor) {
             for (auto& p : platforms) {
-                if (CheckCollisionRecs(Bounds(), p.rect)) {
-                    float feet = pos.y + size.y;
-                    if (vy >= 0 && feet - vy * dt <= p.rect.y + 6) {
-                        pos.y = p.rect.y - size.y;
-                        vy = 0;
-                        grounded = true;
-                    }
-                }
+                if (p.floor == playerFloor) { pos.y = p.rect.y - size.y; break; }
             }
-            if (!grounded) {
-                for (auto& e : elevators) {
-                    if (e.active) continue;
-                    if (CheckCollisionRecs(Bounds(), e.rect)) {
-                        for (auto& p : platforms) {
-                            if (p.floor == e.floorHigh) {
-                                pos.y = p.rect.y - size.y;
-                                vy = 0;
-                                grounded = true;
-                                break;
+            vy = 0;
+            grounded = true;
+            climbing = false;
+        } else {
+            Rectangle elevatorCheck{ pos.x, pos.y, size.x, size.y + 6 };
+            climbing = false;
+            for (auto& e : elevators) {
+                if (e.active && CheckCollisionRecs(elevatorCheck, e.rect)) { climbing = true; break; }
+            }
+
+            grounded = false;
+
+            if (climbing) {
+                float targetFeetY = -1;
+                for (auto& p : platforms) {
+                    if (p.floor == playerFloor) { targetFeetY = p.rect.y; break; }
+                }
+
+                if (targetFeetY >= 0) {
+                    float diff = targetFeetY - feetY;
+                    if (fabs(diff) > 4) {
+                        pos.y += (diff > 0 ? 1 : -1) * climbSpeed * dt;
+                    }
+                    if (pos.y + size.y > minFeetY) { pos.y = minFeetY - size.y; grounded = true; climbing = false; }
+
+                    feetY = pos.y + size.y;
+                    for (auto& e : elevators) {
+                        if (e.active) continue;
+                        if (feetY > e.rect.y && feetY < e.rect.y + e.rect.height) {
+                            climbing = false;
+                            int snapFloor = (diff > 0) ? e.floorHigh : e.floorLow;
+                            for (auto& p : platforms) {
+                                if (p.floor == snapFloor) { pos.y = p.rect.y - size.y; break; }
                             }
+                            vy = 0;
+                            grounded = true;
+                            break;
                         }
-                        break;
                     }
                 }
+                if (climbing) return;
             }
-            if (pos.y + size.y > minFeetY) { pos.y = minFeetY - size.y; vy = 0; grounded = true; }
+
+            if (!climbing) {
+                static const float gravity = 900.0f;
+                vy += gravity * dt;
+                pos.y += vy * dt;
+                for (auto& p : platforms) {
+                    if (CheckCollisionRecs(Bounds(), p.rect)) {
+                        float feet = pos.y + size.y;
+                        if (vy >= 0 && feet - vy * dt <= p.rect.y + 6) {
+                            pos.y = p.rect.y - size.y;
+                            vy = 0;
+                            grounded = true;
+                        }
+                    }
+                }
+                if (!grounded) {
+                    for (auto& e : elevators) {
+                        if (e.active) continue;
+                        if (CheckCollisionRecs(Bounds(), e.rect)) {
+                            for (auto& p : platforms) {
+                                if (p.floor == e.floorHigh) {
+                                    pos.y = p.rect.y - size.y;
+                                    vy = 0;
+                                    grounded = true;
+                                    break;
+                                }
+                            }
+                            break;
+                        }
+                    }
+                }
+                if (pos.y + size.y > minFeetY) { pos.y = minFeetY - size.y; vy = 0; grounded = true; }
+            }
         }
     }
 
