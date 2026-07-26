@@ -145,6 +145,28 @@ void Game::StartRoom(int roomNumber, const PuzzleTypeInfo& type) {
 // Update dispatch
 // =============================================================================
 void Game::Update(float dt) {
+    // Fade transition
+    if (fadingOut) {
+        fadeAlpha = std::min(1.0f, fadeAlpha + fadeSpeed * dt);
+        if (fadeAlpha >= 1.0f && fadeHasAction) {
+            fadeHasAction = false;
+            screenTimer = 0.0f;
+            if (fadeActionType == 0) {
+                // Generic: reset and go to state
+                score = 0;
+                currentRoom = 1;
+                state = fadeNextState;
+            } else if (fadeActionType == 1) {
+                // Menu → type select
+                score = 0;
+                GoToTypeSelect(1);
+            }
+            fadingOut = false;
+        }
+    } else if (fadeAlpha > 0.0f) {
+        fadeAlpha = std::max(0.0f, fadeAlpha - fadeSpeed * dt);
+    }
+
     switch (state) {
         case GameState::MENU: UpdateMenu(); break;
         case GameState::TYPE_SELECT: UpdateTypeSelect(); break;
@@ -157,9 +179,12 @@ void Game::Update(float dt) {
 
 void Game::UpdateMenu() {
     screenTimer += GetFrameTime();
-    if (IsKeyPressed(KEY_ENTER)) {
-        score = 0;
-        GoToTypeSelect(1);
+    if (IsKeyPressed(KEY_ENTER) && !fadingOut) {
+        fadingOut = true;
+        fadeSpeed = 2.5f;
+        fadeNextState = GameState::TYPE_SELECT;
+        fadeHasAction = true;
+        fadeActionType = 1;
     }
 }
 
@@ -433,21 +458,23 @@ void Game::UpdateRoomComplete(float dt) {
 
 void Game::UpdateGameOver() {
     screenTimer += GetFrameTime();
-    if (IsKeyPressed(KEY_ENTER)) {
-        currentRoom = 1;
-        score = 0;
-        screenTimer = 0.0f;
-        state = GameState::MENU;
+    if (IsKeyPressed(KEY_ENTER) && !fadingOut) {
+        fadingOut = true;
+        fadeSpeed = 2.5f;
+        fadeNextState = GameState::MENU;
+        fadeHasAction = true;
+        fadeActionType = 0;
     }
 }
 
 void Game::UpdateWin() {
     screenTimer += GetFrameTime();
-    if (IsKeyPressed(KEY_ENTER)) {
-        currentRoom = 1;
-        score = 0;
-        screenTimer = 0.0f;
-        state = GameState::MENU;
+    if (IsKeyPressed(KEY_ENTER) && !fadingOut) {
+        fadingOut = true;
+        fadeSpeed = 2.5f;
+        fadeNextState = GameState::MENU;
+        fadeHasAction = true;
+        fadeActionType = 0;
     }
 }
 
@@ -463,6 +490,9 @@ void Game::Draw() {
         case GameState::ROOM_COMPLETE: DrawPlaying(); DrawRoomComplete(); break;
         case GameState::GAME_OVER: DrawPlaying(); DrawGameOver(); break;
         case GameState::WIN: DrawWin(); break;
+    }
+    if (fadeAlpha > 0.0f) {
+        DrawRectangle(0, 0, (int)kScreenW, (int)kScreenH, Color{ 0, 0, 0, (unsigned char)(fadeAlpha * 255) });
     }
 }
 
@@ -501,7 +531,7 @@ void Game::DrawMenu() {
         Color{ (unsigned char)(220 * warnPulse), 70, 70, (unsigned char)(255 * warnFade) });
 
     float ctrlFade = std::min(std::max((screenTimer - 1.2f) / 0.6f, 0.0f), 1.0f);
-    DrawCenteredText("AD move  |  W/S climb ladders  |  1/2/3 answer  |  F sabotage", Rectangle{ 0, 370, kScreenW, 30 }, 18,
+    DrawCenteredText("A/D move  |  W/S climb ladders  |  1/2/3 answer  |  F sabotage", Rectangle{ 0, 370, kScreenW, 30 }, 18,
         Color{ 110, 115, 130, (unsigned char)(200 * ctrlFade) });
 
     float startFade = std::min(std::max((screenTimer - 1.6f) / 0.6f, 0.0f), 1.0f);

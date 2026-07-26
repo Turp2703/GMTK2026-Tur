@@ -121,4 +121,11 @@ private:
 
     float screenTimer = 0.0f;
     void DrawGradientBg(Color top, Color bottom);
+
+    float fadeAlpha = 0.0f;
+    bool fadingOut = false;
+    float fadeSpeed = 0.0f;
+    GameState fadeNextState = GameState::MENU;
+    bool fadeHasAction = false;
+    int fadeActionType = 0;
 };
