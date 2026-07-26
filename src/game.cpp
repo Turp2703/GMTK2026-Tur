@@ -96,9 +96,18 @@ void Game::GoToTypeSelect(int roomNumber) {
     std::shuffle(pool.begin(), pool.end(), RNG());
 
     typeCandidates.clear();
+    examplePuzzles.clear();
+    exampleChoices.clear();
     int count = std::min((int)pool.size(), 3);
-    for (int i = 0; i < count; i++) typeCandidates.push_back(*pool[i]);
+    for (int i = 0; i < count; i++) {
+        typeCandidates.push_back(*pool[i]);
+        auto ex = pool[i]->factory();
+        ex->Generate();
+        exampleChoices.push_back(ex->GetChoices());
+        examplePuzzles.push_back(std::move(ex));
+    }
 
+    screenTimer = 0.0f;
     state = GameState::TYPE_SELECT;
 }
 
@@ -189,6 +198,7 @@ void Game::UpdateMenu() {
 }
 
 void Game::UpdateTypeSelect() {
+    screenTimer += GetFrameTime();
     if (IsKeyPressed(KEY_ONE) && typeCandidates.size() > 0) StartRoom(currentRoom, typeCandidates[0]);
     else if (IsKeyPressed(KEY_TWO) && typeCandidates.size() > 1) StartRoom(currentRoom, typeCandidates[1]);
     else if (IsKeyPressed(KEY_THREE) && typeCandidates.size() > 2) StartRoom(currentRoom, typeCandidates[2]);
@@ -541,23 +551,74 @@ void Game::DrawMenu() {
 }
 
 void Game::DrawTypeSelect() {
-    DrawCenteredText(TextFormat("SECTOR %d - Choose your test type", currentRoom), Rectangle{ 0, 100, kScreenW, 50 }, 34, RAYWHITE);
-    DrawCenteredText(TextFormat("Difficulty: %s", DifficultyName(RoomDifficulty(currentRoom))), Rectangle{ 0, 150, kScreenW, 30 }, 20, DifficultyColor(RoomDifficulty(currentRoom)));
+    DrawGradientBg(Color{ 10, 8, 18 }, Color{ 20, 16, 35 });
 
-    float cardW = 340, cardH = 260, gap = 40;
+    float fadeIn = std::min(screenTimer / 0.6f, 1.0f);
+
+    DrawCenteredText(TextFormat("SECTOR %d", currentRoom),
+        Rectangle{ 0, 50, kScreenW, 40 }, 36,
+        Color{ 255, 255, 255, (unsigned char)(255 * fadeIn) });
+
+    float diffFade = std::min(std::max((screenTimer - 0.2f) / 0.5f, 0.0f), 1.0f);
+    Color dc = DifficultyColor(RoomDifficulty(currentRoom));
+    DrawCenteredText(TextFormat("Difficulty: %s", DifficultyName(RoomDifficulty(currentRoom))),
+        Rectangle{ 0, 92, kScreenW, 24 }, 18,
+        Color{ dc.r, dc.g, dc.b, (unsigned char)(255 * diffFade) });
+
+    float promptFade = std::min(std::max((screenTimer - 0.3f) / 0.5f, 0.0f), 1.0f);
+    DrawCenteredText("Choose your test type", Rectangle{ 0, 125, kScreenW, 24 }, 18,
+        Color{ 160, 165, 180, (unsigned char)(200 * promptFade) });
+
+    float cardW = 340, cardH = 340, gap = 30;
     float totalW = cardW * typeCandidates.size() + gap * (typeCandidates.size() > 0 ? typeCandidates.size() - 1 : 0);
     float startX = kScreenW / 2 - totalW / 2;
-    float y = 250;
+    float baseY = 180;
+
     for (int i = 0; i < (int)typeCandidates.size(); i++) {
+        float cardFade = std::min(std::max((screenTimer - 0.2f - i * 0.15f) / 0.5f, 0.0f), 1.0f);
+        float slideY = (1.0f - cardFade) * 20;
         const auto& opt = typeCandidates[i];
-        Rectangle card{ startX + i * (cardW + gap), y, cardW, cardH };
-        DrawRectangleRec(card, Color{ 30, 30, 42, 255 });
-        DrawRectangleLinesEx(card, 3, DifficultyColor(opt.difficulty));
-        DrawCenteredText(TextFormat("[%d]", i + 1), Rectangle{ card.x, card.y + 16, card.width, 26 }, 20, GRAY);
-        DrawCenteredText(opt.name, Rectangle{ card.x, card.y + 60, card.width, 40 }, 28, RAYWHITE);
-        DrawCenteredText(opt.description, Rectangle{ card.x + 10, card.y + 130, card.width - 20, 80 }, 16, RAYWHITE);
+        Rectangle card{ startX + i * (cardW + gap), baseY + slideY, cardW, cardH };
+
+        DrawRectangleRounded(card, 0.06f, 8, Color{ 25, 25, 38, (unsigned char)(240 * cardFade) });
+        DrawRectangleRoundedLines(card, 0.06f, 8, Color{ dc.r, dc.g, dc.b, (unsigned char)(180 * cardFade) });
+
+        Rectangle headerArea{ card.x + 12, card.y + 10, card.width - 24, 36 };
+        Color headerBg{ (unsigned char)(dc.r / 4), (unsigned char)(dc.g / 4), (unsigned char)(dc.b / 4), (unsigned char)(200 * cardFade) };
+        DrawRectangleRounded(headerArea, 0.3f, 4, headerBg);
+
+        DrawCenteredText(TextFormat("[%d] %s", i + 1, opt.name.c_str()),
+            Rectangle{ card.x, card.y + 10, card.width, 36 }, 22,
+            Color{ dc.r, dc.g, dc.b, (unsigned char)(255 * cardFade) });
+
+        DrawCenteredText(opt.description,
+            Rectangle{ card.x + 10, card.y + 52, card.width - 20, 50 }, 14,
+            Color{ 180, 185, 200, (unsigned char)(220 * cardFade) });
+
+        Rectangle previewBg{ card.x + 14, card.y + 108, card.width - 28, 140 };
+        DrawRectangleRounded(previewBg, 0.08f, 6, Color{ 15, 15, 22, (unsigned char)(220 * cardFade) });
+        DrawRectangleRoundedLines(previewBg, 0.08f, 6, Color{ 70, 75, 95, (unsigned char)(120 * cardFade) });
+
+        if (i < (int)examplePuzzles.size() && examplePuzzles[i]) {
+            examplePuzzles[i]->RenderQuestion(
+                Rectangle{ previewBg.x + 6, previewBg.y + 6, previewBg.width - 12, previewBg.height - 12 });
+        }
+
+        float choiceY = card.y + 260;
+        if (i < (int)exampleChoices.size()) {
+            const auto& ch = exampleChoices[i];
+            for (int c = 0; c < 3 && c < (int)ch.size(); c++) {
+                Rectangle choiceBox{ card.x + 14, choiceY + c * 24, card.width - 28, 20 };
+                DrawRectangleRounded(choiceBox, 0.3f, 3, Color{ 40, 42, 58, (unsigned char)(180 * cardFade) });
+                DrawCenteredText(ch[c], choiceBox, 12, Color{ 200, 205, 220, (unsigned char)(200 * cardFade) });
+            }
+        }
     }
-    DrawCenteredText("Press 1, 2 or 3", Rectangle{ 0, y + cardH + 40, kScreenW, 30 }, 22, YELLOW);
+
+    float btnFade = std::min(std::max((screenTimer - 0.6f) / 0.4f, 0.0f), 1.0f);
+    float btnPulse = 0.7f + 0.3f * sinf(screenTimer * 3.0f);
+    DrawCenteredText("Press 1, 2 or 3", Rectangle{ 0, baseY + cardH + 20, kScreenW, 30 }, 24,
+        Color{ (unsigned char)(255 * btnPulse), (unsigned char)(200 * btnPulse), 50, (unsigned char)(255 * btnFade) });
 }
 
 void Game::DrawPlaying() {

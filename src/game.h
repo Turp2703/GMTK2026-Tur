@@ -27,6 +27,8 @@ private:
     int score = 0;
 
     std::vector<PuzzleTypeInfo> typeCandidates;
+    std::vector<PuzzlePtr> examplePuzzles;
+    std::vector<std::array<std::string, 3>> exampleChoices;
     PuzzleTypeInfo chosenType{ "", "", Difficulty::EASY, nullptr };
 
     RoomLayout room;
