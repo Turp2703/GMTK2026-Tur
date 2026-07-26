@@ -23,6 +23,7 @@ private:
 
     int currentRoom = 1;
     static constexpr int kMaxRoom = 5;
+    static constexpr bool kDebug = true; // TODO SET FALSE
     int score = 0;
 
     std::vector<PuzzleTypeInfo> typeCandidates;

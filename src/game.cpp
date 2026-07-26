@@ -99,7 +99,7 @@ void Game::GoToTypeSelect(int roomNumber) {
 }
 
 void Game::StartRoom(int roomNumber, const PuzzleTypeInfo& type) {
-    currentRoom = roomNumber; // TODO REMOVE
+    currentRoom = roomNumber;
     chosenType = type;
     room = GenerateRoom(roomNumber, type);
 
@@ -287,6 +287,29 @@ void Game::UpdatePlaying(float dt) {
         else if (IsKeyPressed(KEY_THREE)) AnswerSlot(nearbySlotIndex, 2);
     }
 
+    if (kDebug) {
+        if (IsKeyPressed(KEY_I)) {
+            for (auto& slot : room.puzzleSlots) {
+                if (slot.state == SlotState::UNSOLVED) {
+                    slot.state = SlotState::SOLVED;
+                    if (slot.isBonus) solvedCount += 2;
+                    else solvedCount++;
+                }
+            }
+            message = "All puzzles solved (debug)";
+            messageTimer = 1.0f;
+        }
+        if (IsKeyPressed(KEY_O)) {
+            timeRemaining = std::max(0.0f, timeRemaining - 5.0f);
+            message = "-5s (debug)";
+            messageTimer = 1.0f;
+        }
+        if (IsKeyPressed(KEY_P)) {
+            state = GameState::MENU;
+            return;
+        }
+    }
+
     if (!enemySpawned) {
         timeRemaining -= dt;
 
@@ -389,7 +412,7 @@ void Game::Draw() {
     }
 }
 
-void Game::DrawMenu() { // TODO WIDTH 1280
+void Game::DrawMenu() {
     DrawCenteredText("AI-DOOMER", Rectangle{ 0, 180, kScreenW, 80 }, 60, RAYWHITE);
     DrawCenteredText("You have a few minutes to prove you are better than AI.", Rectangle{ 0, 270, kScreenW, 30 }, 22, GRAY);
     DrawCenteredText("Or else... they will get you.", Rectangle{ 0, 300, kScreenW, 30 }, 22, Color{ 220, 80, 80, 255 });
