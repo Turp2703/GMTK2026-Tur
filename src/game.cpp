@@ -96,6 +96,17 @@ Game::Game() {
             loadingLabel = "Loading music...";
         },
         [this]() {
+            sndDoorClose = LoadSound("assets/sound_door_close.wav");
+            sndDoorOpen = LoadSound("assets/sound_door_open.wav");
+            sndEnemySpawn = LoadSound("assets/sound_enemy_spawn.wav");
+            sndGameOver = LoadSound("assets/sound_game_over.wav");
+            sndPuzzleFail = LoadSound("assets/sound_puzzle_fail.wav");
+            sndPuzzleWin = LoadSound("assets/sound_puzzle_win.wav");
+            sndSabotage = LoadSound("assets/sound_sabotage.wav");
+            sndWarning = LoadSound("assets/sound_warning.wav");
+            loadingLabel = "Loading sound effects...";
+        },
+        [this]() {
             loadingLabel = "Ready!";
         }
     };
@@ -136,6 +147,14 @@ Game::~Game() {
     if (musicMenu.stream.buffer != nullptr) UnloadMusicStream(musicMenu);
     if (musicPuzzles.stream.buffer != nullptr) UnloadMusicStream(musicPuzzles);
     if (musicEscape.stream.buffer != nullptr) UnloadMusicStream(musicEscape);
+    UnloadSound(sndDoorClose);
+    UnloadSound(sndDoorOpen);
+    UnloadSound(sndEnemySpawn);
+    UnloadSound(sndGameOver);
+    UnloadSound(sndPuzzleFail);
+    UnloadSound(sndPuzzleWin);
+    UnloadSound(sndSabotage);
+    UnloadSound(sndWarning);
 }
 
 void Game::CrossfadeTo(Music& target) {
@@ -193,10 +212,12 @@ void Game::StartRoom(int roomNumber, const PuzzleTypeInfo& type) {
     enemy.pos = room.enemySpawn;
     enemy.active = false;
     enemySpawned = false;
+    warningPlayed = false;
 
     entranceDoorFrame = sideDoorAnim.frameCount - 1;
     exitDoorFrame = 0;
     entranceDoorClosing = true;
+    PlaySound(sndDoorClose);
     exitDoorOpening = false;
     enemyDoorFrame = 0;
     enemyDoorAnimating = false;
@@ -336,6 +357,7 @@ void Game::AnswerSlot(int slotIndex, int chosenChoice) {
 
     if (chosenChoice == slot.puzzle->GetCorrectIndex()) {
         slot.state = SlotState::SOLVED;
+        PlaySound(sndPuzzleWin);
         int pts = slot.puzzle->GetPoints();
         score += pts;
         if (!slot.isBonus) solvedCount++;
@@ -344,6 +366,7 @@ void Game::AnswerSlot(int slotIndex, int chosenChoice) {
         messageTimer = 1.2f;
     } else {
         slot.state = SlotState::WRONG_COOLDOWN;
+        PlaySound(sndPuzzleFail);
         slot.cooldownTimer = PuzzleSlot::kCooldown;
         timeRemaining = std::max(0.0f, timeRemaining - 5.0f);
         message = "Wrong answer (-5s)";
@@ -429,6 +452,7 @@ void Game::UpdatePlaying(float dt) {
     // Exit door: open when puzzles are solved
     if (solvedCount >= room.requiredSolves && !exitDoorOpening) {
         exitDoorOpening = true;
+        PlaySound(sndDoorOpen);
         doorTimer = 0.0f;
         doorParticleActive = true;
         doorParticleAnim.Reset();
@@ -456,6 +480,7 @@ void Game::UpdatePlaying(float dt) {
         bool near = CheckCollisionRecs(interactZone, btn.rect) && elev.floorLow == playerFloor;
         if (near && !elev.used && IsKeyPressed(KEY_F)) {
             elev.active = false;
+            PlaySound(sndSabotage);
             elev.used = true;
             elev.reactivateTimer = 5.0f;
             message = "Ladder sabotaged!";
@@ -505,7 +530,12 @@ void Game::UpdatePlaying(float dt) {
     }
 
     if (!enemySpawned) {
+        float prevTime = timeRemaining;
         timeRemaining -= dt;
+        if (!warningPlayed && prevTime >= 6.0f && timeRemaining < 6.0f) {
+            PlaySound(sndWarning);
+            warningPlayed = true;
+        }
 
         // Overlay transitions
         if (overlayStage == 0 && timeRemaining <= 30.0f) {
@@ -541,6 +571,7 @@ void Game::UpdatePlaying(float dt) {
         if (enemyDoorAnimating && enemyDoorFrame >= enemyDoorAnim.frameCount - 1) {
             timeRemaining = 0.0f;
             enemy.Spawn(room.enemySpawn);
+            PlaySound(sndEnemySpawn);
             enemySpawned = true;
             enemyAnims[Enemy::ANIM_SPAWN].Reset();
             CrossfadeTo(musicEscape);
@@ -581,6 +612,7 @@ void Game::UpdatePlaying(float dt) {
         if (enemy.CatchesPlayer(player)) {
             screenTimer = 0.0f;
             state = GameState::GAME_OVER;
+            PlaySound(sndGameOver);
             CrossfadeTo(musicMenu);
             return;
         }

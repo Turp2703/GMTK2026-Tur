@@ -151,5 +151,15 @@ private:
     static constexpr float kFadeDuration = 0.5f;
     Music* desiredMusic = nullptr;
 
+    Sound sndDoorClose{};
+    Sound sndDoorOpen{};
+    Sound sndEnemySpawn{};
+    Sound sndGameOver{};
+    Sound sndPuzzleFail{};
+    Sound sndPuzzleWin{};
+    Sound sndSabotage{};
+    Sound sndWarning{};
+    bool warningPlayed = false;
+
     void CrossfadeTo(Music& target);
 };
