@@ -179,7 +179,7 @@ public:
 
     void Spawn(Vector2 at) { pos = at; active = true; spawning = true; }
 
-    void Update(float dt, const Player& player, const std::vector<Platform>& platforms, const std::vector<Elevator>& elevators, float screenH) {
+    void Update(float dt, const Player& player, const std::vector<Platform>& platforms, const std::vector<Elevator>& elevators, float screenH, float minFeetY = 0) {
         if (!active) return;
 
         if (spawning) return;
@@ -199,6 +199,7 @@ public:
 
         if (climbing && fabs(dy) > 6) {
             pos.y += (dy > 0 ? 1 : -1) * climbSpeed * dt;
+            if (pos.y + size.y > minFeetY) pos.y = minFeetY - size.y;
             float feetY = pos.y + size.y;
             for (auto& e : elevators) {
                 if (e.active) continue;
@@ -243,7 +244,7 @@ public:
                     }
                 }
             }
-            if (pos.y + size.y > screenH) { pos.y = screenH - size.y; vy = 0; grounded = true; }
+            if (pos.y + size.y > minFeetY) { pos.y = minFeetY - size.y; vy = 0; grounded = true; }
         }
     }
 

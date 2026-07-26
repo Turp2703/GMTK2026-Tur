@@ -497,7 +497,7 @@ void Game::UpdatePlaying(float dt) {
         if (enemy.spawning && enemyAnims[Enemy::ANIM_SPAWN].finished) {
             enemy.spawning = false;
         }
-        enemy.Update(dt, player, room.platforms, room.elevators, kScreenH);
+        enemy.Update(dt, player, room.platforms, room.elevators, kScreenH, room.floorY[0]);
         enemy.pos.x = Clamp(enemy.pos.x, 16.0f, kScreenW - enemy.size.x - 16.0f);
         if (enemy.CatchesPlayer(player)) {
             screenTimer = 0.0f;
